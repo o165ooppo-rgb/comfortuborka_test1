@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Панель директора — Komfort Uborka</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="director.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="director-body">
+
+  <!-- Sidebar -->
+  <aside class="dir-sidebar">
+    <div class="dir-brand">
+      <i class="fa-solid fa-shield-halved"></i>
+      <div>
+        <div class="dir-brand-name">KOMFORT</div>
+        <div class="dir-brand-sub">Панель директора</div>
+      </div>
+    </div>
+
+    <nav class="dir-nav">
+      <button class="dir-nav-btn active" data-tab="dashboard"><i class="fa-solid fa-gauge"></i> <span>Обзор</span></button>
+      <button class="dir-nav-btn" data-tab="employees"><i class="fa-solid fa-users"></i> <span>Сотрудники</span></button>
+      <button class="dir-nav-btn" data-tab="services"><i class="fa-solid fa-broom"></i> <span>Услуги</span></button>
+      <button class="dir-nav-btn" data-tab="attendance"><i class="fa-solid fa-id-card-clip"></i> <span>Посещаемость</span></button>
+      <button class="dir-nav-btn" data-tab="chat"><i class="fa-solid fa-comments"></i> <span>Чат</span> <span id="chatBadge" class="nav-badge" style="display:none">0</span></button>
+      <button class="dir-nav-btn" data-tab="orders"><i class="fa-solid fa-clipboard-list"></i> <span>Заказы</span></button>
+      <button class="dir-nav-btn" data-tab="clients"><i class="fa-solid fa-address-book"></i> <span>Клиенты</span></button>
+      <button class="dir-nav-btn" data-tab="settings"><i class="fa-solid fa-gear"></i> <span>Настройки</span></button>
+      <button class="dir-nav-btn" data-tab="logs"><i class="fa-solid fa-clock-rotate-left"></i> <span>Журнал</span></button>
+    </nav>
+
+    <div class="dir-bottom">
+      <div class="dir-user">
+        <div class="dir-avatar"><i class="fa-solid fa-user-tie"></i></div>
+        <div>
+          <div class="dir-user-name" id="dirUserName">—</div>
+          <div class="dir-user-role">Директор</div>
+        </div>
+      </div>
+      <button onclick="window.location.href='index.html'" class="dir-side-btn">
+        <i class="fa-solid fa-arrow-left"></i> <span>К сайту</span>
+      </button>
+      <button onclick="dirLogout()" class="dir-side-btn dir-side-btn-danger">
+        <i class="fa-solid fa-right-from-bracket"></i> <span>Выйти</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="dir-main">
+
+    <!-- Tab: Dashboard -->
+    <section class="dir-tab active" data-tab="dashboard">
+      <div class="dir-head">
+        <div>
+          <h1>Обзор</h1>
+          <p class="muted">Сводка по системе на сегодня</p>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card stat-1">
+          <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+          <div class="stat-num" id="statEmployees">0</div>
+          <div class="stat-label">Сотрудников всего</div>
+        </div>
+        <div class="stat-card stat-2">
+          <div class="stat-icon"><i class="fa-solid fa-circle"></i></div>
+          <div class="stat-num" id="statOnline">0</div>
+          <div class="stat-label">Онлайн сейчас</div>
+        </div>
+        <div class="stat-card stat-3">
+          <div class="stat-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+          <div class="stat-num" id="statOrders">0</div>
+          <div class="stat-label">Заказов сегодня</div>
+        </div>
+        <div class="stat-card stat-4">
+          <div class="stat-icon"><i class="fa-solid fa-coins"></i></div>
+          <div class="stat-num" id="statRevenue">0</div>
+          <div class="stat-label">Выручка (Сум)</div>
+        </div>
+      </div>
+
+      <div class="dir-grid-2">
+        <div class="dir-panel">
+          <h3><i class="fa-solid fa-bolt"></i> Последние действия</h3>
+          <div id="recentLogs" class="logs-list logs-list-compact"></div>
+        </div>
+        <div class="dir-panel">
+          <h3><i class="fa-solid fa-circle"></i> Кто онлайн</h3>
+          <div id="onlineList" class="online-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: Employees -->
+    <section class="dir-tab" data-tab="employees">
+      <div class="dir-head">
+        <div>
+          <h1>Сотрудники</h1>
+          <p class="muted">Создание и управление аккаунтами</p>
+        </div>
+        <button class="primary" onclick="openCreateUserModal()">
+          <i class="fa-solid fa-user-plus"></i> <span>Создать аккаунт</span>
+        </button>
+      </div>
+
+      <div id="employeesGrid" class="employees-grid"></div>
+    </section>
+
+    <!-- Tab: Services (NEW) -->
+    <section class="dir-tab" data-tab="services">
+      <div class="dir-head">
+        <div>
+          <h1>Услуги</h1>
+          <p class="muted">Редактирование услуг сайта — изменения сразу появятся на главной странице</p>
+        </div>
+        <button class="primary" onclick="openServiceEditor()">
+          <i class="fa-solid fa-plus"></i> <span>Новая услуга</span>
+        </button>
+      </div>
+      <div id="servicesEditorGrid" class="services-editor-grid"></div>
+    </section>
+
+    <!-- Tab: Attendance (NEW) -->
+    <section class="dir-tab" data-tab="attendance">
+      <div class="dir-head">
+        <div>
+          <h1>Посещаемость</h1>
+          <p class="muted">Турникет: фото, время и адрес сотрудников</p>
+        </div>
+        <div class="att-actions">
+          <button class="ghost-btn" onclick="dirRefreshAttendance()">
+            <i class="fa-solid fa-rotate"></i> <span>Обновить</span>
+          </button>
+          <button class="danger-btn" onclick="dirClearAttendance()">
+            <i class="fa-solid fa-trash"></i> <span>Очистить всё</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Сводка за сегодня -->
+      <div id="attTodaySummary" class="att-today-summary"></div>
+
+      <!-- Фильтры -->
+      <div class="att-filters">
+        <div class="att-filter">
+          <label class="label">Сотрудник</label>
+          <select id="attFilterUser" onchange="renderAttendance()">
+            <option value="">Все сотрудники</option>
+          </select>
+        </div>
+        <div class="att-filter">
+          <label class="label">Тип</label>
+          <select id="attFilterType" onchange="renderAttendance()">
+            <option value="">Все</option>
+            <option value="check_in">Только приходы</option>
+            <option value="check_out">Только уходы</option>
+          </select>
+        </div>
+        <div class="att-filter">
+          <label class="label">С даты</label>
+          <input type="date" id="attFilterFrom" onchange="renderAttendance()"/>
+        </div>
+        <div class="att-filter">
+          <label class="label">По дату</label>
+          <input type="date" id="attFilterTo" onchange="renderAttendance()"/>
+        </div>
+      </div>
+
+      <!-- Сетка карточек -->
+      <div id="attendanceGrid" class="attendance-grid"></div>
+    </section>
+
+    <!-- Tab: Chat -->
+    <section class="dir-tab" data-tab="chat">
+      <div class="dir-head">
+        <div>
+          <h1>Чат с сотрудниками</h1>
+          <p class="muted">Отправляйте задания и сообщения</p>
+        </div>
+      </div>
+      <div class="chat-shell">
+        <aside class="chat-list" id="chatList"></aside>
+        <div class="chat-window">
+          <div class="chat-header" id="chatHeader">
+            <div class="muted">Выберите сотрудника слева</div>
+          </div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="Сообщение или задание..." disabled/>
+            <button id="chatSendBtn" class="primary" onclick="dirSendMessage()" disabled>
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: Orders -->
+    <section class="dir-tab" data-tab="orders">
+      <div class="dir-head">
+        <div>
+          <h1>Заказы</h1>
+          <p class="muted">Все заказы и управление статусом оплаты</p>
+        </div>
+        <div class="filters">
+          <button class="chip-btn active" data-filter="all">Все</button>
+          <button class="chip-btn" data-filter="paid">Оплачены</button>
+          <button class="chip-btn" data-filter="unpaid">Не оплачены</button>
+          <button class="chip-btn" data-filter="draft">Черновики</button>
+        </div>
+      </div>
+      <div id="dirOrdersGrid" class="dir-orders-grid"></div>
+    </section>
+
+    <!-- Tab: Clients -->
+    <section class="dir-tab" data-tab="clients">
+      <div class="dir-head">
+        <div>
+          <h1>Клиентская база</h1>
+          <p class="muted">Все клиенты, которые когда-либо делали заказ</p>
+        </div>
+        <input type="text" id="clientSearch" class="search-input" placeholder="🔎 Поиск по имени или телефону..." oninput="renderClients()"/>
+      </div>
+      <div id="clientsGrid" class="clients-grid"></div>
+    </section>
+
+    <!-- Tab: Settings (NEW) -->
+    <section class="dir-tab" data-tab="settings">
+      <div class="dir-head">
+        <div>
+          <h1>Настройки сайта</h1>
+          <p class="muted">Название компании, контактные данные</p>
+        </div>
+      </div>
+      <div id="settingsBody" class="settings-body"></div>
+    </section>
+
+    <!-- Tab: Logs -->
+    <section class="dir-tab" data-tab="logs">
+      <div class="dir-head">
+        <div>
+          <h1>Журнал действий</h1>
+          <p class="muted">Все действия в системе</p>
+        </div>
+        <button class="ghost-btn" onclick="dirClearLogs()">
+          <i class="fa-solid fa-trash"></i> <span>Очистить журнал</span>
+        </button>
+      </div>
+      <div id="fullLogs" class="logs-list"></div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Create User -->
+  <div id="createUserModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" onclick="closeCreateUserModal()" aria-label="Закрыть">&times;</button>
+      <h2>Новый аккаунт</h2>
+      <p class="muted">Логин и пароль вы передадите сотруднику лично</p>
+
+      <label class="label">ФИО / Имя</label>
+      <input type="text" id="newFullName" placeholder="Иван Иванов"/>
+
+      <label class="label">Логин</label>
+      <input type="text" id="newLogin" placeholder="ivan_worker" autocomplete="off"/>
+
+      <label class="label">Пароль</label>
+      <input type="text" id="newPassword" placeholder="придумайте пароль" autocomplete="off"/>
+
+      <label class="label">Телефон (необязательно)</label>
+      <input type="tel" id="newPhone" placeholder="+998 90 ..."/>
+
+      <label class="label">Роль</label>
+      <select id="newRole">
+        <option value="worker">Сотрудник</option>
+        <option value="accountant">Бухгалтер</option>
+        <option value="director">Директор</option>
+      </select>
+
+      <div id="createUserError" class="login-error"></div>
+
+      <button class="primary" onclick="dirCreateUser()">
+        <i class="fa-solid fa-check"></i> <span>Создать</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Service Editor (NEW) -->
+  <div id="serviceEditorModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-wide">
+      <button class="close" onclick="closeServiceEditor()" aria-label="Закрыть">&times;</button>
+      <h2 id="svcEditorTitle">Новая услуга</h2>
+      <p class="muted">Заполните карточку услуги — она появится на главной странице</p>
+
+      <label class="label">Название услуги</label>
+      <input type="text" id="svcTitle" placeholder="напр. Уборка офиса"/>
+
+      <label class="label">Описание</label>
+      <input type="text" id="svcDescription" placeholder="напр. Поддержание порядка в офисных помещениях"/>
+
+      <div class="grid-2">
+        <div>
+          <label class="label">Цена (Сум)</label>
+          <input type="number" id="svcPrice" min="0" placeholder="5000"/>
+        </div>
+        <div>
+          <label class="label">Единица измерения</label>
+          <input type="text" id="svcUnit" placeholder="м² / шт / час"/>
+        </div>
+      </div>
+
+      <label class="label">Иконка</label>
+      <input type="hidden" id="svcIconInput"/>
+      <div class="svc-icon-preview">
+        <div class="preview-box"><i id="svcIconPreview" class="fa-solid fa-broom"></i></div>
+        <div>
+          <div class="preview-label">Превью карточки</div>
+          <div class="muted">Выберите иконку из списка ниже</div>
+        </div>
+      </div>
+      <div id="iconPicker" class="icon-picker"></div>
+
+      <div class="switch-row">
+        <span class="switch-label">Услуга активна (видна на сайте)</span>
+        <label class="switch">
+          <input type="checkbox" id="svcActive" checked/>
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <div id="svcError" class="login-error"></div>
+
+      <button class="primary" onclick="dirSaveService()" style="margin-top:14px;width:100%">
+        <i class="fa-solid fa-floppy-disk"></i> <span>Сохранить услугу</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Attendance Detail (NEW) -->
+  <div id="attDetailModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-wide">
+      <button class="close" onclick="closeAttendanceDetail()" aria-label="Закрыть">&times;</button>
+      <h2 id="attDetailTitle">Запись турникета</h2>
+      <div id="attDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastRoot" class="toast-root" aria-live="polite"></div>
+
+  <script src="firebase-config.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="auth.js"></script>
+  <script src="director.js"></script>
+</body>
+</html>

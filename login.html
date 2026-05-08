@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Вход в систему — Komfort Uborka</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="login-body">
+
+  <!-- Декоративный фон -->
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+  </div>
+
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark">
+          <i class="fa-solid fa-broom"></i>
+        </div>
+        <h1>Komfort Uborka</h1>
+        <p class="muted">Вход в систему</p>
+      </div>
+
+      <form id="loginForm" class="login-form" onsubmit="return false;">
+        <label class="field">
+          <span class="field-label"><i class="fa-solid fa-user"></i> Логин</span>
+          <input type="text" id="loginInput" autocomplete="username" required placeholder="Введите логин"/>
+        </label>
+
+        <label class="field">
+          <span class="field-label"><i class="fa-solid fa-lock"></i> Пароль</span>
+          <div class="pw-wrap">
+            <input type="password" id="passwordInput" autocomplete="current-password" required placeholder="Введите пароль"/>
+            <button type="button" class="pw-toggle" onclick="togglePassword()" aria-label="Показать пароль">
+              <i class="fa-solid fa-eye" id="pwIcon"></i>
+            </button>
+          </div>
+        </label>
+
+        <div id="loginError" class="login-error" role="alert"></div>
+
+        <button type="submit" class="primary login-submit" onclick="doLogin()">
+          <i class="fa-solid fa-right-to-bracket"></i>
+          <span>Войти</span>
+        </button>
+
+        <p class="login-hint muted">
+          У вас нет аккаунта? Обратитесь к директору — регистрация только через него.
+        </p>
+      </form>
+    </div>
+
+    <p class="login-footer muted">© 2026 Komfort Uborka • Самарканд</p>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    // Если уже залогинен — сразу перебрасываем
+    (function () {
+      const s = getSession();
+      if (s) {
+        if (s.role === "director") window.location.href = "director.html";
+        else window.location.href = "index.html";
+      }
+    })();
+
+    function togglePassword() {
+      const inp = document.getElementById("passwordInput");
+      const icon = document.getElementById("pwIcon");
+      if (inp.type === "password") { inp.type = "text"; icon.className = "fa-solid fa-eye-slash"; }
+      else { inp.type = "password"; icon.className = "fa-solid fa-eye"; }
+    }
+
+    async function doLogin() {
+      const loginStr = document.getElementById("loginInput").value.trim();
+      const pw = document.getElementById("passwordInput").value;
+      const errEl = document.getElementById("loginError");
+      errEl.textContent = "";
+
+      if (!loginStr || !pw) {
+        errEl.textContent = "Введите логин и пароль";
+        return;
+      }
+
+      // Ждём пока Firebase подтянет актуальные данные
+      if (window.FB && !window.FB.isReady()) {
+        errEl.textContent = "Подключение к серверу...";
+        await window.FB.waitReady();
+        errEl.textContent = "";
+      }
+
+      const res = await login(loginStr, pw);
+      if (!res.ok) {
+        errEl.textContent = res.error;
+        return;
+      }
+
+      // Перенаправление по роли
+      if (res.session.role === "director") window.location.href = "director.html";
+      else if (res.session.role === "accountant") window.location.href = "accountant.html";
+      else window.location.href = "index.html";
+    }
+
+    // Submit по Enter
+    document.getElementById("loginForm").addEventListener("submit", doLogin);
+    document.getElementById("passwordInput").addEventListener("keypress", e => {
+      if (e.key === "Enter") doLogin();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Komfort Uborka — Услуги</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- Декоративный фон -->
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+  </div>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="nav-left">
+      <div class="social-icons">
+        <a href="https://instagram.com/yourprofile" target="_blank" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+        <a href="https://facebook.com/yourprofile" target="_blank" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://t.me/komfort_uborka_samarkand" target="_blank" aria-label="Telegram"><i class="fab fa-telegram-plane"></i></a>
+      </div>
+      <h1 class="call-center" id="callCenterText">Call Center +998 (90) 185-66-99</h1>
+    </div>
+
+    <div class="nav-center">
+      <a href="index.html" class="brand-text" id="brandText">
+        <i class="fa-solid fa-broom"></i>
+        <span>KOMFORT</span>
+      </a>
+    </div>
+
+    <!-- Кнопки навигации — отображаются по ролям через JS -->
+    <div class="nav-right" id="navRight">
+      <!-- Заполняется renderNav() -->
+    </div>
+  </header>
+
+  <!-- Баннер сессии -->
+  <div id="sessionBanner" class="session-banner"></div>
+
+  <!-- Services -->
+  <section class="services" id="services">
+    <div class="section-head">
+      <h2 class="section-title" id="servicesTitle">Услуги</h2>
+      <p class="section-subtitle" id="servicesSubtitle">Выберите услугу и оформите заказ</p>
+    </div>
+    <div class="service-grid"></div>
+  </section>
+
+  <!-- Service Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" onclick="closeModal()" aria-label="Закрыть">&times;</button>
+      <div class="modal-header">
+        <h2 id="serviceTitle"></h2>
+        <p class="muted" id="serviceDescription"></p>
+      </div>
+      <div class="modal-row">
+        <div class="pill">
+          <span id="pricePerUnitLabel">Цена за единицу:</span>
+          <strong><span id="servicePrice"></span> Сум</strong>
+        </div>
+      </div>
+      <label for="squareMeters" class="label" id="quantityLabel">Количество</label>
+      <input type="number" id="squareMeters" value="1" min="1" onchange="updateTotalPrice()" />
+      <div class="total-line">
+        <span class="muted"><span id="totalPriceText">Итого:</span></span>
+        <strong><span id="totalServicePrice"></span> Сум</strong>
+      </div>
+      <button class="primary" onclick="addToOrder()" id="addToOrderButton">
+        <i class="fa-solid fa-bag-shopping"></i>
+        <span>Оформить заказ</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Order Form Modal -->
+  <div id="orderFormModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" onclick="closeOrderForm()" aria-label="Закрыть">&times;</button>
+      <h2 id="orderFormTitle">Оформление заказа</h2>
+      <div class="order-summary">
+        <p><span class="muted">Услуга:</span> <strong id="orderService"></strong></p>
+        <p><span class="muted">Сумма:</span> <strong id="orderTotal"></strong></p>
+      </div>
+      <div class="grid-2">
+        <input type="text" id="name" placeholder="Ваше имя" autocomplete="name"/>
+        <input type="tel" id="phone" placeholder="Телефон" autocomplete="tel"/>
+      </div>
+      <input type="text" id="address" placeholder="Адрес" autocomplete="street-address"/>
+      <div class="grid-2">
+        <input type="date" id="date"/>
+        <input type="time" id="time"/>
+      </div>
+
+      <!-- Только для директора/сотрудника — выбор статуса оплаты -->
+      <div id="paymentStatusBlock" class="payment-status-block" style="display:none;">
+        <label class="label">Статус оплаты</label>
+        <div class="payment-options">
+          <label class="pay-opt">
+            <input type="radio" name="payment" value="paid"/>
+            <span class="pay-pill pay-paid"><i class="fa-solid fa-check"></i> Оплачен</span>
+          </label>
+          <label class="pay-opt">
+            <input type="radio" name="payment" value="unpaid" checked/>
+            <span class="pay-pill pay-unpaid"><i class="fa-solid fa-xmark"></i> Не оплачен</span>
+          </label>
+          <label class="pay-opt">
+            <input type="radio" name="payment" value="draft"/>
+            <span class="pay-pill pay-draft"><i class="fa-solid fa-pen-ruler"></i> Черновик</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="primary" onclick="confirmOrder()" id="confirmOrderButton">
+        <i class="fa-solid fa-check"></i>
+        <span>Подтвердить заказ</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Order Details Modal -->
+  <div id="orderDetailsModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" onclick="closeOrderDetails()" aria-label="Закрыть">&times;</button>
+      <h2 id="orderDetailsTitle">Детали заказа</h2>
+      <div class="details">
+        <p id="detailsNameLabel"></p>
+        <p id="detailsTotalLabel"></p>
+        <p id="detailsAddressLabel"></p>
+        <p id="detailsDateLabel"></p>
+        <p id="detailsTimeLabel"></p>
+        <p id="detailsServiceLabel"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order History -->
+  <section class="order-history-section">
+    <div class="section-head">
+      <h2 id="orderHistoryTitle">История заказов</h2>
+      <p class="section-subtitle">Заказы автоматически удаляются через 24 часа</p>
+    </div>
+    <div class="order-history" id="orderHistory"></div>
+  </section>
+
+  <!-- ============ Чат с директором (плавающее окно) ============ -->
+  <!-- Кнопка-пузырёк (видна только сотрудникам/бухгалтерам) -->
+  <button id="chatBubble" class="chat-bubble" onclick="toggleStaffChat()" style="display:none" aria-label="Чат с директором">
+    <i class="fa-solid fa-comments"></i>
+    <span id="chatBubbleBadge" class="chat-bubble-badge" style="display:none">0</span>
+  </button>
+
+  <!-- Окно чата -->
+  <div id="staffChatPanel" class="staff-chat-panel" style="display:none">
+    <div class="staff-chat-head">
+      <div class="staff-chat-head-info">
+        <div class="staff-chat-avatar"><i class="fa-solid fa-user-tie"></i></div>
+        <div>
+          <div class="staff-chat-title">Директор</div>
+          <div class="staff-chat-sub" id="staffChatSub">в сети</div>
+        </div>
+      </div>
+      <button class="staff-chat-close" onclick="toggleStaffChat()" aria-label="Закрыть">&times;</button>
+    </div>
+    <div id="staffChatMessages" class="staff-chat-messages"></div>
+    <div class="staff-chat-input-row">
+      <input type="text" id="staffChatInput" placeholder="Сообщение директору..." onkeypress="if(event.key==='Enter')staffSendMessage()"/>
+      <button class="staff-chat-send" onclick="staffSendMessage()" aria-label="Отправить">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ Турникет (модалка камеры) ============ -->
+  <div id="turnstileModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-wide">
+      <button class="close" onclick="closeTurnstile()" aria-label="Закрыть">&times;</button>
+      <h2 id="turnstileTitle">Отметка прихода</h2>
+      <p class="muted" id="turnstileSubtitle">Сделайте селфи и подтвердите место — отчёт уйдёт директору</p>
+
+      <!-- Шаги -->
+      <div class="ts-steps">
+        <div class="ts-step ts-step-active" data-step="1"><span>1</span> Камера</div>
+        <div class="ts-step" data-step="2"><span>2</span> Геолокация</div>
+        <div class="ts-step" data-step="3"><span>3</span> Готово</div>
+      </div>
+
+      <!-- Видео и предпросмотр -->
+      <div class="ts-camera-wrap">
+        <video id="tsVideo" autoplay playsinline muted></video>
+        <img id="tsPreview" alt="Селфи" style="display:none"/>
+        <canvas id="tsCanvas" style="display:none"></canvas>
+        <div id="tsCamError" class="ts-cam-error" style="display:none">
+          <i class="fa-solid fa-camera"></i>
+          <p>Доступ к камере не разрешён. Разрешите камеру в настройках браузера и попробуйте ещё раз.</p>
+        </div>
+      </div>
+
+      <!-- Статус геолокации -->
+      <div id="tsGeoStatus" class="ts-geo-status" style="display:none">
+        <div class="ts-geo-icon"><i class="fa-solid fa-location-dot"></i></div>
+        <div class="ts-geo-body">
+          <div class="ts-geo-title" id="tsGeoTitle">Определяем местоположение...</div>
+          <div class="ts-geo-sub" id="tsGeoSub">Нажмите «Разрешить» во всплывающем окне браузера</div>
+        </div>
+      </div>
+
+      <div id="tsError" class="login-error" style="display:none"></div>
+
+      <!-- Кнопки управления -->
+      <div class="ts-actions">
+        <button id="tsCaptureBtn" class="primary ts-btn-capture" onclick="tsCapturePhoto()">
+          <i class="fa-solid fa-camera"></i> <span>Сделать снимок</span>
+        </button>
+        <button id="tsRetakeBtn" class="ghost-btn" onclick="tsRetakePhoto()" style="display:none">
+          <i class="fa-solid fa-rotate-right"></i> <span>Переснять</span>
+        </button>
+        <button id="tsSubmitBtn" class="primary" onclick="tsSubmit()" style="display:none">
+          <i class="fa-solid fa-paper-plane"></i> <span>Отправить отчёт</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="firebase-config.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
