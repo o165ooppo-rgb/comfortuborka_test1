@@ -52,6 +52,15 @@ function initDirector() {
     if (activeTab === "services" && e.key === "kus_services_v2") renderServicesEditor();
     if (activeTab === "attendance" && e.key === "kus_attendance") renderAttendance();
     if (activeTab === "logs" && e.key === "kus_action_logs") renderFullLogs();
+    if (activeTab === "tasks" && (e.key === "kus_tasks" || e.key === "kus_users")) renderTasksTab();
+    if (e.key === "kus_users" && activeTab === "tasks") renderTaskStaffList();
+  });
+
+  // Перерисовка интерфейса при смене языка
+  window.addEventListener("lang-changed", () => {
+    applyI18n();
+    // Перерисовываем активную вкладку
+    switchTab(activeTab);
   });
 }
 
@@ -66,6 +75,7 @@ function switchTab(tab) {
   if (tab === "dashboard") renderDashboard();
   else if (tab === "employees") renderEmployees();
   else if (tab === "chat") { renderChatList(); }
+  else if (tab === "tasks") renderTasksTab();
   else if (tab === "orders") renderDirOrders();
   else if (tab === "clients") renderClients();
   else if (tab === "services") renderServicesEditor();
@@ -90,7 +100,7 @@ function renderDashboard() {
   const orders = getAllOrders();
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayOrders = orders.filter(o => new Date(o.createdAt) >= todayStart);
-  const revenue = todayOrders.filter(o => o.payment === "paid").reduce((s, o) => s + (o.total || 0), 0);
+  const revenue = todayOrders.filter(o => o.payment === "paid").reduce((s, o) => s + (o.price || o.total || 0), 0);
 
   document.getElementById("statEmployees").textContent = users.length;
   document.getElementById("statOnline").textContent = onlineUsers.length;
@@ -203,29 +213,29 @@ async function dirCreateUser() {
   const errEl = document.getElementById("createUserError");
 
   if (!fullName || !login || !password) {
-    errEl.textContent = "Заполните ФИО, логин и пароль";
+    errEl.textContent = t("dir.emp.errFill");
     return;
   }
   if (login.length < 3 || password.length < 4) {
-    errEl.textContent = "Логин — от 3 символов, пароль — от 4";
+    errEl.textContent = t("dir.emp.errLen");
     return;
   }
 
   const res = await createUser({ fullName, login, password, phone, role }, dirSession.login);
   if (!res.ok) { errEl.textContent = res.error; return; }
   closeCreateUserModal();
-  showToast("success", "Аккаунт создан", `${fullName} (${roleLabel(role)})`);
+  showToast("success", t("dir.emp.created"), `${fullName} (${roleLabel(role)})`);
   renderEmployees();
   renderDashboard();
 }
 
 async function dirChangePassword(login) {
-  const np = prompt(`Новый пароль для ${login}:`);
+  const np = prompt(t("dir.emp.newPwPrompt", { login }));
   if (!np) return;
-  if (np.length < 4) { showToast("error", "Слишком короткий", "Минимум 4 символа"); return; }
+  if (np.length < 4) { showToast("error", t("dir.emp.tooShort"), t("dir.emp.minChars")); return; }
   const res = await updateUserPassword(login, np, dirSession.login);
-  if (!res.ok) showToast("error", "Ошибка", res.error);
-  else showToast("success", "Готово", "Пароль изменён");
+  if (!res.ok) showToast("error", t("common.error"), res.error);
+  else showToast("success", t("common.success"), t("dir.emp.passwordChanged"));
 }
 
 function dirDeleteUser(login) {
@@ -235,8 +245,8 @@ function dirDeleteUser(login) {
   }
   if (!confirm(`Удалить ${login}?`)) return;
   const res = deleteUser(login, dirSession.login);
-  if (!res.ok) showToast("error", "Ошибка", res.error);
-  else { showToast("success", "Удалён", login); renderEmployees(); renderDashboard(); }
+  if (!res.ok) showToast("error", t("common.error"), res.error);
+  else { showToast("success", t("dir.emp.removed"), login); renderEmployees(); renderDashboard(); }
 }
 
 /* =========================================================
@@ -359,19 +369,30 @@ function renderDirOrders() {
   if (currentOrdersFilter !== "all") orders = orders.filter(o => o.payment === currentOrdersFilter);
 
   if (orders.length === 0) {
-    grid.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open"></i><p>Заказов пока нет</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open"></i><p>${escapeHtml(t("dir.ord.empty"))}</p></div>`;
     return;
   }
 
   grid.innerHTML = orders.map(o => {
     const payClass = o.payment === "paid" ? "pay-paid" : o.payment === "draft" ? "pay-draft" : "pay-unpaid";
     const payIcon = o.payment === "paid" ? "fa-check" : o.payment === "draft" ? "fa-pen-ruler" : "fa-xmark";
+
+    const lang = getCurrentLang();
+    let serviceTitle = o.serviceTitle || "—";
+    if (lang === "ru" && o.serviceTitleRu) serviceTitle = o.serviceTitleRu;
+    else if (lang === "uz" && o.serviceTitleUz) serviceTitle = o.serviceTitleUz;
+    else if (lang === "en" && o.serviceTitleEn) serviceTitle = o.serviceTitleEn;
+
+    const price = o.price || o.total || 0;
+    const advance = o.advance || 0;
+    const remaining = Math.max(0, price - advance);
+
     return `
       <div class="dir-order-card">
         <div class="dir-order-head">
           <div>
             <div class="order-id">#${o.id.slice(-6)}</div>
-            <div class="order-service">${escapeHtml(o.serviceTitle || "—")}</div>
+            <div class="order-service">${escapeHtml(serviceTitle)}</div>
           </div>
           <div class="pay-pill ${payClass}"><i class="fa-solid ${payIcon}"></i> ${paymentLabel(o.payment)}</div>
         </div>
@@ -379,14 +400,21 @@ function renderDirOrders() {
           <div><i class="fa-solid fa-user"></i> ${escapeHtml(o.name)} · ${escapeHtml(o.phone)}</div>
           <div><i class="fa-solid fa-location-dot"></i> ${escapeHtml(o.address)}</div>
           <div><i class="fa-solid fa-calendar"></i> ${escapeHtml(o.date)} ${escapeHtml(o.time)}</div>
-          <div><i class="fa-solid fa-user-check"></i> ${o.takenBy ? escapeHtml(o.takenBy) : 'не взят'}</div>
+          <div><i class="fa-solid fa-user-check"></i> ${o.takenBy ? escapeHtml(o.takenBy) : '—'}</div>
+        </div>
+        <div class="order-card-money">
+          <div class="order-money-item"><span class="muted">${t("receipt.price")}</span><strong>${price.toLocaleString("ru-RU")}</strong></div>
+          <div class="order-money-item"><span class="muted">${t("receipt.advance")}</span><strong>${advance.toLocaleString("ru-RU")}</strong></div>
+          <div class="order-money-item order-money-remaining"><span class="muted">${t("receipt.remaining")}</span><strong>${remaining.toLocaleString("ru-RU")}</strong></div>
         </div>
         <div class="dir-order-foot">
-          <strong>${(o.total || 0).toLocaleString("ru-RU")} Сум</strong>
+          <button class="ghost-btn small" onclick="openReceipt('${o.id}')">
+            <i class="fa-solid fa-receipt"></i> ${t("receipt.show")}
+          </button>
           <select onchange="dirChangePayment('${o.id}', this.value)">
-            <option value="paid"   ${o.payment==='paid'?'selected':''}>Оплачен</option>
-            <option value="unpaid" ${o.payment==='unpaid'?'selected':''}>Не оплачен</option>
-            <option value="draft"  ${o.payment==='draft'?'selected':''}>Черновик</option>
+            <option value="paid"   ${o.payment==='paid'?'selected':''}>${t("order.paid")}</option>
+            <option value="unpaid" ${o.payment==='unpaid'?'selected':''}>${t("order.unpaid")}</option>
+            <option value="draft"  ${o.payment==='draft'?'selected':''}>${t("order.draft")}</option>
           </select>
         </div>
       </div>
@@ -396,7 +424,7 @@ function renderDirOrders() {
 
 function dirChangePayment(orderId, newPayment) {
   updateOrderPayment(orderId, newPayment, dirSession.login);
-  showToast("success", "Готово", `Статус: ${paymentLabel(newPayment)}`);
+  showToast("success", t("common.success"), paymentLabel(newPayment));
   renderDirOrders();
 }
 
@@ -435,7 +463,7 @@ function renderClients() {
 }
 
 function dirDeleteClient(id) {
-  if (!confirm("Удалить клиента из базы?")) return;
+  if (!confirm(t("dir.emp.confirmDel", { login: "" }) || "Delete?")) return;
   deleteClient(id, dirSession.login);
   showToast("success", "Удалён", "Клиент удалён");
   renderClients();
@@ -466,35 +494,37 @@ function renderServicesEditor() {
   let html = `
     <div class="services-toolbar">
       <button class="primary" onclick="openServiceEditor()">
-        <i class="fa-solid fa-plus"></i> Добавить услугу
+        <i class="fa-solid fa-plus"></i> ${t("dir.svc.new")}
       </button>
-      <span class="muted" style="margin-left:auto">Всего: ${services.length}</span>
+      <span class="muted" style="margin-left:auto">${t("common.all")}: ${services.length}</span>
     </div>
   `;
 
   if (services.length === 0) {
-    html += `<div class="empty-state"><i class="fa-solid fa-broom"></i><p>Услуг пока нет. Нажмите «Добавить услугу».</p></div>`;
+    html += `<div class="empty-state"><i class="fa-solid fa-broom"></i><p>${escapeHtml(t("dir.svc.empty"))}</p></div>`;
   } else {
     html += `<div class="services-editor-grid">`;
     services.forEach(s => {
       const inactive = s.active === false ? 'svc-inactive' : '';
+      const title = tService(s, "title");
+      const description = tService(s, "description");
       html += `
         <div class="svc-edit-card ${inactive}">
           <div class="svc-edit-icon"><i class="fa-solid ${escapeHtml(s.icon || 'fa-broom')}"></i></div>
           <div class="svc-edit-body">
-            <div class="svc-edit-title">${escapeHtml(s.title)}</div>
-            <div class="svc-edit-desc">${escapeHtml(s.description || '')}</div>
-            <div class="svc-edit-price">${(s.price || 0).toLocaleString("ru-RU")} Сум / ${escapeHtml(s.unit || 'м²')}</div>
-            ${s.active === false ? '<span class="badge" style="background:var(--pay-draft-bg);color:var(--pay-draft-fg)"><i class="fa-solid fa-eye-slash"></i> Скрыта</span>' : ''}
+            <div class="svc-edit-title">${escapeHtml(title)}</div>
+            <div class="svc-edit-desc">${escapeHtml(description)}</div>
+            <div class="svc-edit-price">${(s.price || 0).toLocaleString("ru-RU")} ${t("services.currency")} / ${escapeHtml(s.unit || 'м²')}</div>
+            ${s.active === false ? `<span class="badge" style="background:var(--pay-draft-bg);color:var(--pay-draft-fg)"><i class="fa-solid fa-eye-slash"></i> ${t("dir.svc.hidden")}</span>` : ''}
           </div>
           <div class="svc-edit-actions">
-            <button class="ghost-btn small" onclick="openServiceEditor('${s.id}')" title="Редактировать">
+            <button class="ghost-btn small" onclick="openServiceEditor('${s.id}')" title="${t("common.edit")}">
               <i class="fa-solid fa-pen"></i>
             </button>
-            <button class="ghost-btn small" onclick="toggleServiceActive('${s.id}')" title="${s.active === false ? 'Показать' : 'Скрыть'}">
+            <button class="ghost-btn small" onclick="toggleServiceActive('${s.id}')" title="${s.active === false ? t("dir.svc.show") : t("dir.svc.hide")}">
               <i class="fa-solid ${s.active === false ? 'fa-eye' : 'fa-eye-slash'}"></i>
             </button>
-            <button class="danger-btn small" onclick="dirDeleteService('${s.id}')" title="Удалить">
+            <button class="danger-btn small" onclick="dirDeleteService('${s.id}')" title="${t("common.delete")}">
               <i class="fa-solid fa-trash"></i>
             </button>
           </div>
@@ -510,11 +540,18 @@ function renderServicesEditor() {
 function openServiceEditor(serviceId) {
   editingServiceId = serviceId || null;
   const isEdit = !!serviceId;
-  const s = isEdit ? getServiceById(serviceId) : { title:"", description:"", price:15000, icon:"fa-broom", unit:"м²", active:true };
+  const s = isEdit ? getServiceById(serviceId) : { titleRu:"", titleUz:"", titleEn:"", descriptionRu:"", descriptionUz:"", descriptionEn:"", price:15000, icon:"fa-broom", unit:"м²", active:true };
 
-  document.getElementById("svcEditorTitle").textContent = isEdit ? "Редактировать услугу" : "Новая услуга";
-  document.getElementById("svcTitle").value = s.title || "";
-  document.getElementById("svcDescription").value = s.description || "";
+  document.getElementById("svcEditorTitle").textContent = isEdit ? t("dir.svc.editTitle") : t("dir.svc.new");
+
+  // Многоязычные поля — поддерживают и старый формат (title) и новый (titleRu/Uz/En)
+  document.getElementById("svcTitleRu").value = s.titleRu || s.title || "";
+  document.getElementById("svcTitleUz").value = s.titleUz || s.title || "";
+  document.getElementById("svcTitleEn").value = s.titleEn || s.title || "";
+  document.getElementById("svcDescriptionRu").value = s.descriptionRu || s.description || "";
+  document.getElementById("svcDescriptionUz").value = s.descriptionUz || s.description || "";
+  document.getElementById("svcDescriptionEn").value = s.descriptionEn || s.description || "";
+
   document.getElementById("svcPrice").value = s.price || 0;
   document.getElementById("svcUnit").value = s.unit || "м²";
   document.getElementById("svcActive").checked = s.active !== false;
@@ -556,8 +593,12 @@ function selectIcon(ic) {
 }
 
 function dirSaveService() {
-  const title = document.getElementById("svcTitle").value.trim();
-  const description = document.getElementById("svcDescription").value.trim();
+  const titleRu = document.getElementById("svcTitleRu").value.trim();
+  const titleUz = document.getElementById("svcTitleUz").value.trim();
+  const titleEn = document.getElementById("svcTitleEn").value.trim();
+  const descriptionRu = document.getElementById("svcDescriptionRu").value.trim();
+  const descriptionUz = document.getElementById("svcDescriptionUz").value.trim();
+  const descriptionEn = document.getElementById("svcDescriptionEn").value.trim();
   const price = parseInt(document.getElementById("svcPrice").value) || 0;
   const unit = document.getElementById("svcUnit").value.trim() || "м²";
   const icon = document.getElementById("svcIconInput").value.trim() || "fa-broom";
@@ -566,16 +607,33 @@ function dirSaveService() {
   const errEl = document.getElementById("svcError");
   errEl.textContent = "";
 
-  if (!title) { errEl.textContent = "Введите название услуги"; return; }
-  if (price < 0) { errEl.textContent = "Цена не может быть отрицательной"; return; }
+  // Хотя бы одно из названий должно быть заполнено
+  if (!titleRu && !titleUz && !titleEn) {
+    errEl.textContent = t("dir.svc.errName");
+    return;
+  }
+  if (price < 0) { errEl.textContent = t("dir.svc.errPrice"); return; }
+
+  // Если какое-то название пустое — заполняем им другим (фолбэк)
+  const fallbackTitle = titleUz || titleRu || titleEn;
+  const fallbackDesc = descriptionUz || descriptionRu || descriptionEn;
 
   const data = {
     id: editingServiceId,
-    title, description, price, unit, icon, active,
+    titleRu: titleRu || fallbackTitle,
+    titleUz: titleUz || fallbackTitle,
+    titleEn: titleEn || fallbackTitle,
+    descriptionRu: descriptionRu || fallbackDesc,
+    descriptionUz: descriptionUz || fallbackDesc,
+    descriptionEn: descriptionEn || fallbackDesc,
+    // Поле title оставляем для обратной совместимости — кладём узбекский (язык по умолчанию)
+    title: titleUz || fallbackTitle,
+    description: descriptionUz || fallbackDesc,
+    price, unit, icon, active,
   };
 
   saveService(data, dirSession.login);
-  showToast("success", editingServiceId ? "Сохранено" : "Создано", title);
+  showToast("success", t("common.success"), tService(data, "title"));
   closeServiceEditor();
   renderServicesEditor();
 }
@@ -592,10 +650,11 @@ function toggleServiceActive(id) {
 function dirDeleteService(id) {
   const s = getServiceById(id);
   if (!s) return;
-  if (!confirm(`Удалить услугу «${s.title}»?\nЭто действие нельзя отменить.`)) return;
+  const title = tService(s, "title");
+  if (!confirm(t("dir.svc.confirmDel", { name: title }))) return;
   const res = deleteService(id, dirSession.login);
-  if (!res.ok) showToast("error", "Ошибка", res.error);
-  else { showToast("success", "Удалено", s.title); renderServicesEditor(); }
+  if (!res.ok) showToast("error", t("common.error"), res.error);
+  else { showToast("success", t("dir.svc.deleted"), title); renderServicesEditor(); }
 }
 
 /* =========================================================
@@ -628,7 +687,7 @@ function dirSaveSettings() {
     callCenter: document.getElementById("setCallCenter").value.trim(),
   };
   saveSettings(patch, dirSession.login);
-  showToast("success", "Сохранено", "Настройки применены ко всем страницам");
+  showToast("success", t("common.success"), t("dir.set.saved"));
 }
 
 /* =========================================================
@@ -652,9 +711,9 @@ function renderFullLogs() {
 }
 
 function dirClearLogs() {
-  if (!confirm("Очистить весь журнал действий?")) return;
+  if (!confirm(t("dir.log.confirmClear"))) return;
   clearLogs(dirSession.login);
-  showToast("info", "Очищено", "Журнал действий очищен");
+  showToast("info", t("common.success"), t("dir.log.cleared"));
   renderFullLogs();
 }
 
@@ -662,7 +721,7 @@ function dirClearLogs() {
    УТИЛИТЫ
 ========================================================= */
 function dirLogout() {
-  if (!confirm("Выйти из аккаунта?")) return;
+  if (!confirm(t("session.logoutConfirm"))) return;
   logout();
   window.location.href = "login.html";
 }
@@ -694,7 +753,7 @@ function formatTime(iso) {
   const d = new Date(iso);
   const now = new Date();
   const diff = now - d;
-  if (diff < 60000) return "сейчас";
+  if (diff < 60000) return t("dir.att.inLong") === "Arrival at work" ? "now" : (t("dir.att.inLong") === "Ishga kelish" ? "hozir" : "сейчас");
   if (diff < 3600000) return `${Math.floor(diff/60000)} мин`;
   if (d.toDateString() === now.toDateString()) {
     return d.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" });
@@ -815,7 +874,7 @@ function renderAttendanceGrid() {
     grid.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1">
         <i class="fa-regular fa-folder-open"></i>
-        <p>Нет записей по выбранным фильтрам</p>
+        <p>${escapeHtml(t("dir.att.empty"))}</p>
       </div>`;
     return;
   }
@@ -826,8 +885,8 @@ function renderAttendanceGrid() {
     const timeStr = date.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" });
 
     const typeBadge = r.type === "check_in"
-      ? '<span class="att-badge att-badge-in"><i class="fa-solid fa-right-to-bracket"></i> Приход</span>'
-      : '<span class="att-badge att-badge-out"><i class="fa-solid fa-right-from-bracket"></i> Уход</span>';
+      ? `<span class="att-badge att-badge-in"><i class="fa-solid fa-right-to-bracket"></i> ${t("dir.att.in")}</span>`
+      : `<span class="att-badge att-badge-out"><i class="fa-solid fa-right-from-bracket"></i> ${t("dir.att.out")}</span>`;
 
     const photoHtml = r.photo
       ? `<img src="${r.photo}" alt="селфи" class="att-photo"/>`
@@ -837,7 +896,7 @@ function renderAttendanceGrid() {
       ? `<div class="att-address"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(truncate(r.address, 90))}</div>`
       : (r.lat != null
           ? `<div class="att-address att-address-coords"><i class="fa-solid fa-map-pin"></i> ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}</div>`
-          : '<div class="att-address att-no-loc"><i class="fa-solid fa-circle-question"></i> Геолокация не указана</div>');
+          : `<div class="att-address att-no-loc"><i class="fa-solid fa-circle-question"></i> ${t("dir.att.noLoc")}</div>`);
 
     return `
       <div class="att-card" onclick="openAttendanceDetail('${r.id}')">
@@ -861,29 +920,29 @@ function renderAttendanceGrid() {
 
 function dirRefreshAttendance() {
   renderAttendance();
-  showToast("info", "Обновлено", "Список перезагружен");
+  showToast("info", t("dir.att.refresh"), t("dir.att.refreshed"));
 }
 
 function dirClearAttendance() {
-  if (!confirm("Удалить ВСЕ записи турникета? Это действие нельзя отменить.")) return;
-  if (!confirm("Точно удалить все записи?")) return;
-  clearAllAttendance(session.login);
+  if (!confirm(t("dir.att.confirmClearAll"))) return;
+  if (!confirm(t("dir.att.confirmClearAll2"))) return;
+  clearAllAttendance(dirSession.login);
   renderAttendance();
-  showToast("success", "Удалено", "Все записи турникета очищены");
+  showToast("success", t("dir.svc.deleted"), t("dir.att.cleared"));
 }
 
 function openAttendanceDetail(id) {
   const records = getAttendance();
   const r = records.find(x => x.id === id);
   if (!r) {
-    showToast("error", "Ошибка", "Запись не найдена");
+    showToast("error", t("common.error"), t("dir.att.notFound"));
     return;
   }
 
   const date = new Date(r.timestamp);
   const dateStr = date.toLocaleDateString("ru-RU", { day:"numeric", month:"long", year:"numeric", weekday:"long" });
   const timeStr = date.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
-  const typeLabel = r.type === "check_in" ? "Приход на работу" : "Уход с работы";
+  const typeLabel = r.type === "check_in" ? t("dir.att.inLong") : t("dir.att.outLong");
   const typeIcon = r.type === "check_in" ? "fa-right-to-bracket" : "fa-right-from-bracket";
   const typeColor = r.type === "check_in" ? "#10b981" : "#f59e0b";
 
@@ -976,18 +1035,294 @@ function closeAttendanceDetail() {
 }
 
 function dirDeleteAttendanceRecord(id) {
-  if (!confirm("Удалить эту запись турникета?")) return;
-  const res = deleteAttendance(id, session.login);
+  if (!confirm(t("dir.att.confirmDel"))) return;
+  const res = deleteAttendance(id, dirSession.login);
   if (!res.ok) {
     showToast("error", "Ошибка", res.error);
     return;
   }
   closeAttendanceDetail();
   renderAttendance();
-  showToast("success", "Удалено", "Запись удалена");
+  showToast("success", t("dir.svc.deleted"), t("dir.att.recordDeleted"));
 }
 
 function truncate(s, n) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+/* =========================================================
+   ВКЛАДКА «ЗАДАНИЯ»
+========================================================= */
+let _taskPickedSet = new Set();
+
+function renderTasksTab() {
+  renderTaskStaffList();
+  renderRecentTasks();
+  updateTaskPickedCount();
+  applyI18n();
+}
+
+function renderTaskStaffList() {
+  const list = document.getElementById("taskStaffList");
+  if (!list) return;
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+
+  if (users.length === 0) {
+    list.innerHTML = `<div class="empty-state" style="padding:20px"><p>${escapeHtml(t("receipt.noStaff"))}</p></div>`;
+    return;
+  }
+
+  list.innerHTML = users.map(u => {
+    const checked = _taskPickedSet.has(u.login);
+    const isOn = isOnline(u.login);
+    return `
+      <label class="task-staff-item ${checked ? 'picked' : ''}">
+        <input type="checkbox" class="task-staff-cb" data-login="${escapeHtml(u.login)}"
+               ${checked ? 'checked' : ''}
+               onchange="dirTogglePickStaff('${escapeHtml(u.login)}', this.checked)"/>
+        <div class="task-staff-avatar">
+          <i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : 'fa-user'}"></i>
+          ${isOn ? '<span class="online-dot"></span>' : ''}
+        </div>
+        <div class="task-staff-info">
+          <div class="task-staff-name">${escapeHtml(u.fullName || u.login)}</div>
+          <div class="task-staff-role muted">${roleLabel(u.role)} · @${escapeHtml(u.login)}</div>
+        </div>
+        <i class="fa-solid fa-check task-staff-check"></i>
+      </label>
+    `;
+  }).join("");
+}
+
+function dirTogglePickStaff(login, isOn) {
+  if (isOn) _taskPickedSet.add(login);
+  else _taskPickedSet.delete(login);
+  renderTaskStaffList();
+  updateTaskPickedCount();
+}
+
+function dirToggleAllStaff(pickAll) {
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  if (pickAll) users.forEach(u => _taskPickedSet.add(u.login));
+  else _taskPickedSet.clear();
+  renderTaskStaffList();
+  updateTaskPickedCount();
+}
+
+function updateTaskPickedCount() {
+  const el = document.getElementById("taskPickedCount");
+  if (el) el.textContent = t("dir.tasks.selected", { n: _taskPickedSet.size });
+}
+
+function dirSendTask() {
+  const text = document.getElementById("taskText").value.trim();
+  const errEl = document.getElementById("taskError");
+  errEl.style.display = "none";
+
+  if (!text) {
+    errEl.style.display = "block";
+    errEl.textContent = t("dir.tasks.errEmpty");
+    return;
+  }
+  if (_taskPickedSet.size === 0) {
+    errEl.style.display = "block";
+    errEl.textContent = t("dir.tasks.errNobody");
+    return;
+  }
+
+  const toLogins = Array.from(_taskPickedSet);
+  const res = createTask(text, dirSession.login, toLogins, {});
+  if (!res.ok) {
+    errEl.style.display = "block";
+    errEl.textContent = res.error || t("common.error");
+    return;
+  }
+
+  showToast("success", t("dir.tasks.sent"), t("dir.tasks.sentTo", { n: toLogins.length }));
+  document.getElementById("taskText").value = "";
+  _taskPickedSet.clear();
+  renderTaskStaffList();
+  updateTaskPickedCount();
+  renderRecentTasks();
+}
+
+function renderRecentTasks() {
+  const list = document.getElementById("recentTasksList");
+  if (!list) return;
+  const tasks = getTasks().slice(0, 10);
+  if (tasks.length === 0) {
+    list.innerHTML = `<div class="muted" style="padding:14px;text-align:center">${escapeHtml(t("dir.tasks.empty"))}</div>`;
+    return;
+  }
+  const users = getUsers();
+  const lang = getCurrentLang();
+  list.innerHTML = tasks.map(task => {
+    const recipients = (task.toLogins || []).map(l => {
+      const u = users.find(x => x.login === l);
+      return u ? (u.fullName || u.login) : l;
+    });
+    const doneCount = Object.values(task.statuses || {}).filter(s => s === "done").length;
+    const totalCount = (task.toLogins || []).length;
+    const createdAt = new Date(task.createdAt);
+    const dateStr = createdAt.toLocaleString(lang === "uz" ? "uz-UZ" : (lang === "en" ? "en-US" : "ru-RU"));
+    const shortText = task.text.length > 80 ? task.text.slice(0, 80) + "..." : task.text;
+    return `
+      <div class="recent-task-card">
+        <div class="recent-task-head">
+          <span class="muted"><i class="fa-regular fa-clock"></i> ${escapeHtml(dateStr)}</span>
+          <span class="recent-task-progress">${doneCount}/${totalCount} ✓</span>
+        </div>
+        <div class="recent-task-text">${escapeHtml(shortText)}</div>
+        <div class="recent-task-recipients muted">
+          <i class="fa-solid fa-users"></i> ${escapeHtml(recipients.join(", "))}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+/* =========================================================
+   ЧЕК — переиспользует openReceipt / printReceipt из app.js,
+   но т.к. director.html не подключает app.js, добавим их здесь
+========================================================= */
+let _currentReceiptOrderId = null;
+
+function openReceipt(orderId) {
+  const order = getAllOrders().find(o => o.id === orderId);
+  if (!order) {
+    showToast("error", t("common.error"), t("dir.att.notFound"));
+    return;
+  }
+  _currentReceiptOrderId = orderId;
+  document.getElementById("receiptBody").innerHTML = buildReceiptHtmlDir(order);
+  document.getElementById("receiptModal").classList.add("open");
+}
+
+function closeReceipt() {
+  document.getElementById("receiptModal").classList.remove("open");
+  _currentReceiptOrderId = null;
+}
+
+function buildReceiptHtmlDir(order) {
+  const settings = getSettings();
+  const company = settings.companyName || "Komfort Uborka";
+  const callCenter = settings.callCenter || "";
+  const lang = getCurrentLang();
+  let serviceTitle = order.serviceTitle || "—";
+  if (lang === "ru" && order.serviceTitleRu) serviceTitle = order.serviceTitleRu;
+  else if (lang === "uz" && order.serviceTitleUz) serviceTitle = order.serviceTitleUz;
+  else if (lang === "en" && order.serviceTitleEn) serviceTitle = order.serviceTitleEn;
+
+  const price = order.price || order.total || 0;
+  const advance = order.advance || 0;
+  const remaining = Math.max(0, price - advance);
+
+  let payLabel, payColor;
+  if (order.payment === "paid") { payLabel = t("receipt.paid"); payColor = "#00b87a"; }
+  else if (order.payment === "draft") { payLabel = t("receipt.draft"); payColor = "#f59e0b"; }
+  else { payLabel = t("receipt.unpaid"); payColor = "#ef4444"; }
+
+  const createdAt = new Date(order.createdAt);
+  const createdStr = createdAt.toLocaleString(lang === "uz" ? "uz-UZ" : (lang === "en" ? "en-US" : "ru-RU"));
+
+  return `
+    <div class="receipt-paper">
+      <div class="receipt-head">
+        <div class="receipt-logo"><i class="fa-solid fa-broom"></i></div>
+        <div class="receipt-company">${escapeHtml(company)}</div>
+        ${callCenter ? `<div class="receipt-contact"><i class="fa-solid fa-phone"></i> ${escapeHtml(callCenter)}</div>` : ""}
+        <div class="receipt-divider"></div>
+        <div class="receipt-id">${t("receipt.no")}${order.id.slice(-6).toUpperCase()}</div>
+        <div class="receipt-date">${escapeHtml(createdStr)}</div>
+      </div>
+      <div class="receipt-rows">
+        <div class="receipt-row"><span class="muted">${t("receipt.service")}</span><strong>${escapeHtml(serviceTitle)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.client")}</span><strong>${escapeHtml(order.name)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.phone")}</span><strong>${escapeHtml(order.phone)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.address")}</span><strong>${escapeHtml(order.address)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.scheduled")}</span><strong>${escapeHtml(order.date)} ${escapeHtml(order.time)}</strong></div>
+      </div>
+      <div class="receipt-divider"></div>
+      <div class="receipt-money">
+        <div class="receipt-row"><span class="muted">${t("receipt.price")}</span><strong>${price.toLocaleString("ru-RU")} ${t("services.currency")}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.advance")}</span><strong>${advance.toLocaleString("ru-RU")} ${t("services.currency")}</strong></div>
+        <div class="receipt-row receipt-row-total"><span>${t("receipt.remaining")}</span><strong>${remaining.toLocaleString("ru-RU")} ${t("services.currency")}</strong></div>
+      </div>
+      <div class="receipt-status" style="background:${payColor}">${payLabel}</div>
+      <div class="receipt-foot"><p>${t("receipt.thanks")}</p></div>
+    </div>
+  `;
+}
+
+function printReceipt() {
+  if (!_currentReceiptOrderId) return;
+  const order = getAllOrders().find(o => o.id === _currentReceiptOrderId);
+  if (!order) return;
+  const html = buildReceiptHtmlDir(order);
+  const win = window.open("", "_blank", "width=500,height=800");
+  win.document.write(`
+    <html><head><title>${t("receipt.title")} #${order.id.slice(-6)}</title>
+    <link rel="stylesheet" href="style.css"/>
+    <style>body{padding:20px;background:#fff}</style>
+    </head><body>${html}</body></html>
+  `);
+  win.document.close();
+  setTimeout(() => { win.print(); }, 500);
+}
+
+function openSendReceiptModal() {
+  if (!_currentReceiptOrderId) return;
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  const list = document.getElementById("receiptStaffList");
+  if (users.length === 0) {
+    list.innerHTML = `<div class="empty-state"><p>${escapeHtml(t("receipt.noStaff"))}</p></div>`;
+  } else {
+    list.innerHTML = users.map(u => `
+      <label class="staff-pick-item">
+        <input type="checkbox" class="staff-pick-cb" data-login="${escapeHtml(u.login)}"/>
+        <div class="staff-pick-avatar"><i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : 'fa-user'}"></i></div>
+        <div class="staff-pick-info">
+          <div class="staff-pick-name">${escapeHtml(u.fullName || u.login)}</div>
+          <div class="staff-pick-role muted">${roleLabel(u.role)}</div>
+        </div>
+        <i class="fa-solid fa-check staff-pick-check"></i>
+      </label>
+    `).join("");
+  }
+  document.getElementById("sendReceiptModal").classList.add("open");
+}
+
+function closeSendReceiptModal() {
+  document.getElementById("sendReceiptModal").classList.remove("open");
+}
+
+function sendReceiptToStaff() {
+  if (!_currentReceiptOrderId) return;
+  const checked = document.querySelectorAll("#receiptStaffList .staff-pick-cb:checked");
+  if (checked.length === 0) {
+    showToast("error", t("common.error"), t("dir.tasks.errNobody"));
+    return;
+  }
+  const toLogins = Array.from(checked).map(cb => cb.dataset.login);
+  const order = getAllOrders().find(o => o.id === _currentReceiptOrderId);
+  if (!order) return;
+
+  const lang = getCurrentLang();
+  let serviceTitle = order.serviceTitle || "—";
+  if (lang === "ru" && order.serviceTitleRu) serviceTitle = order.serviceTitleRu;
+  else if (lang === "uz" && order.serviceTitleUz) serviceTitle = order.serviceTitleUz;
+  else if (lang === "en" && order.serviceTitleEn) serviceTitle = order.serviceTitleEn;
+
+  const price = order.price || order.total || 0;
+  const taskText = `${t("receipt.chatLabel")}\n\n${t("receipt.service")}: ${serviceTitle}\n${t("receipt.client")}: ${order.name}\n${t("receipt.phone")}: ${order.phone}\n${t("receipt.address")}: ${order.address}\n${t("receipt.scheduled")}: ${order.date} ${order.time}\n${t("receipt.price")}: ${price.toLocaleString("ru-RU")} ${t("services.currency")}`;
+
+  const res = createTask(taskText, dirSession.login, toLogins, { receiptOrderId: order.id });
+  if (!res.ok) {
+    showToast("error", t("common.error"), res.error || "");
+    return;
+  }
+  closeSendReceiptModal();
+  closeReceipt();
+  showToast("success", t("receipt.sent"), t("receipt.sentTo", { n: toLogins.length }));
 }

@@ -16,20 +16,21 @@ const AUTH_KEYS = {
   SERVICES: "kus_services_v2",     // редактируемые услуги
   SETTINGS: "kus_settings",         // общие настройки сайта
   ATTENDANCE: "kus_attendance",     // турникет: фото + геолокация
+  TASKS: "kus_tasks",               // задания директора → сотрудникам
 };
 
 /* =========================================================
    ДЕФОЛТНЫЕ УСЛУГИ (используются только при первом запуске)
 ========================================================= */
 const DEFAULT_SERVICES = [
-  { id:"svc_1", title:"Двор",       description:"Уборка двора и территории",      price:15000, icon:"fa-tree",          unit:"м²", order:1, active:true },
-  { id:"svc_2", title:"Квартира",   description:"Генеральная уборка квартиры",    price:15000, icon:"fa-house",         unit:"м²", order:2, active:true },
-  { id:"svc_3", title:"Школа",      description:"Уборка учебных заведений",        price:15000, icon:"fa-school",        unit:"м²", order:3, active:true },
-  { id:"svc_4", title:"Офис",       description:"Уборка офисных помещений",        price:15000, icon:"fa-building",      unit:"м²", order:4, active:true },
-  { id:"svc_5", title:"Магазин",    description:"Уборка торговых площадей",        price:15000, icon:"fa-shop",          unit:"м²", order:5, active:true },
-  { id:"svc_6", title:"Ресторан",   description:"Уборка кафе и ресторанов",        price:15000, icon:"fa-utensils",      unit:"м²", order:6, active:true },
-  { id:"svc_7", title:"Окна",       description:"Профессиональное мытьё окон",     price:15000, icon:"fa-window-maximize",unit:"шт", order:7, active:true },
-  { id:"svc_8", title:"Ковры",      description:"Глубокая чистка ковров",          price:15000, icon:"fa-rug",           unit:"м²", order:8, active:true },
+  { id:"svc_1", titleRu:"Двор",     titleUz:"Hovli",     titleEn:"Yard",       descriptionRu:"Уборка двора и территории",   descriptionUz:"Hovli va hududni tozalash",      descriptionEn:"Yard and area cleaning",          title:"Hovli",     description:"Hovli va hududni tozalash",       icon:"fa-tree",          order:1, active:true },
+  { id:"svc_2", titleRu:"Квартира", titleUz:"Kvartira",  titleEn:"Apartment",  descriptionRu:"Генеральная уборка квартиры", descriptionUz:"Kvartirani umumiy tozalash",     descriptionEn:"Deep apartment cleaning",         title:"Kvartira",  description:"Kvartirani umumiy tozalash",      icon:"fa-house",         order:2, active:true },
+  { id:"svc_3", titleRu:"Школа",    titleUz:"Maktab",    titleEn:"School",     descriptionRu:"Уборка учебных заведений",    descriptionUz:"Ta'lim muassasalarini tozalash", descriptionEn:"Educational institution cleaning",title:"Maktab",    description:"Ta'lim muassasalarini tozalash",  icon:"fa-school",        order:3, active:true },
+  { id:"svc_4", titleRu:"Офис",     titleUz:"Ofis",      titleEn:"Office",     descriptionRu:"Уборка офисных помещений",    descriptionUz:"Ofis xonalarini tozalash",       descriptionEn:"Office space cleaning",           title:"Ofis",      description:"Ofis xonalarini tozalash",        icon:"fa-building",      order:4, active:true },
+  { id:"svc_5", titleRu:"Магазин",  titleUz:"Do'kon",    titleEn:"Shop",       descriptionRu:"Уборка торговых площадей",    descriptionUz:"Savdo joylarini tozalash",       descriptionEn:"Retail space cleaning",           title:"Do'kon",    description:"Savdo joylarini tozalash",        icon:"fa-shop",          order:5, active:true },
+  { id:"svc_6", titleRu:"Ресторан", titleUz:"Restoran",  titleEn:"Restaurant", descriptionRu:"Уборка кафе и ресторанов",    descriptionUz:"Kafe va restoranlarni tozalash", descriptionEn:"Cafe and restaurant cleaning",    title:"Restoran",  description:"Kafe va restoranlarni tozalash",  icon:"fa-utensils",      order:6, active:true },
+  { id:"svc_7", titleRu:"Окна",     titleUz:"Derazalar", titleEn:"Windows",    descriptionRu:"Профессиональное мытьё окон", descriptionUz:"Derazalarni professional yuvish", descriptionEn:"Professional window cleaning",   title:"Derazalar", description:"Derazalarni professional yuvish", icon:"fa-window-maximize",order:7, active:true },
+  { id:"svc_8", titleRu:"Ковры",    titleUz:"Gilamlar",  titleEn:"Carpets",    descriptionRu:"Глубокая чистка ковров",      descriptionUz:"Gilamlarni chuqur tozalash",     descriptionEn:"Deep carpet cleaning",            title:"Gilamlar",  description:"Gilamlarni chuqur tozalash",      icon:"fa-rug",           order:8, active:true },
 ];
 
 /* =========================================================
@@ -264,6 +265,23 @@ function getSession() {
   catch { return null; }
 }
 
+/* =========================================================
+   ЦЕНТРАЛИЗОВАННЫЙ РЕДИРЕКТ ПО РОЛИ
+   director  → director.html
+   worker    → worker.html
+   accountant→ index.html (видит услуги, оформляет заказы)
+========================================================= */
+function homePageForRole(role) {
+  if (role === "director") return "director.html";
+  if (role === "worker") return "worker.html";
+  return "index.html"; // accountant и прочие
+}
+
+function redirectByRole(session) {
+  if (!session) { window.location.href = "login.html"; return; }
+  window.location.href = homePageForRole(session.role);
+}
+
 function requireAuth(allowedRoles) {
   const s = getSession();
   if (!s) {
@@ -271,8 +289,8 @@ function requireAuth(allowedRoles) {
     return null;
   }
   if (allowedRoles && !allowedRoles.includes(s.role)) {
-    alert("Нет доступа к этой странице");
-    window.location.href = "index.html";
+    // Не ругаемся, просто отправляем на правильную страницу
+    window.location.href = homePageForRole(s.role);
     return null;
   }
   return s;
@@ -622,10 +640,85 @@ function getLastAttendanceForUser(login) {
 }
 
 /* =========================================================
-   АВТО-ИНИЦИАЛИЗАЦИЯ
-   Ждём Firebase (если есть) чтобы не создавать дефолтного директора
-   когда в облаке уже есть данные.
+   ЗАДАНИЯ (директор → сотрудники)
+   ---------------------------------------------------------
+   Структура task:
+   {
+     id: "tsk_...",
+     text: "Завтра объект...",
+     fromLogin: "director",
+     toLogins: ["ali", "vali"],
+     createdAt: "2026-...",
+     statuses: { "ali": "pending"|"done", "vali": "pending" },
+     // если задание создано из чека:
+     receiptOrderId: "ord_..." | null
+   }
 ========================================================= */
+function getTasks() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEYS.TASKS)) || []; }
+  catch { return []; }
+}
+function saveTasksRaw(list) {
+  localStorage.setItem(AUTH_KEYS.TASKS, JSON.stringify(list));
+}
+function createTask(text, fromLogin, toLogins, opts) {
+  if (!text || !text.trim()) return { ok:false, error:"empty text" };
+  if (!Array.isArray(toLogins) || toLogins.length === 0) return { ok:false, error:"no recipients" };
+  const tasks = getTasks();
+  const statuses = {};
+  toLogins.forEach(l => statuses[l] = "pending");
+  const task = {
+    id: "tsk_" + Date.now(),
+    text: text.trim(),
+    fromLogin,
+    toLogins: toLogins.slice(),
+    createdAt: new Date().toISOString(),
+    statuses,
+    receiptOrderId: (opts && opts.receiptOrderId) || null,
+  };
+  tasks.unshift(task);
+  saveTasksRaw(tasks);
+
+  // Дублируем в чат — каждому получателю отдельное сообщение
+  const chats = getChats();
+  toLogins.forEach(toLogin => {
+    const key = chatKey(fromLogin, toLogin);
+    if (!chats[key]) chats[key] = [];
+    chats[key].push({
+      id: "msg_" + Date.now() + "_" + Math.random().toString(36).slice(2,6),
+      from: fromLogin,
+      to: toLogin,
+      text: (opts && opts.receiptOrderId)
+        ? `📋 ${text}\n\n[receipt:${opts.receiptOrderId}]`
+        : `📋 ${text}`,
+      createdAt: new Date().toISOString(),
+      taskId: task.id,
+      read: false,
+    });
+  });
+  localStorage.setItem(AUTH_KEYS.CHATS, JSON.stringify(chats));
+
+  addLog(fromLogin, `Отправил задание ${toLogins.length} сотруднику(ам)`);
+  return { ok:true, task };
+}
+function getTasksForUser(login) {
+  return getTasks().filter(t => Array.isArray(t.toLogins) && t.toLogins.includes(login));
+}
+function markTaskDone(taskId, byLogin) {
+  const tasks = getTasks();
+  const t = tasks.find(x => x.id === taskId);
+  if (!t) return { ok:false };
+  if (!t.statuses) t.statuses = {};
+  t.statuses[byLogin] = "done";
+  saveTasksRaw(tasks);
+  addLog(byLogin, `Выполнил задание ${taskId.slice(-6)}`);
+  return { ok:true };
+}
+function countNewTasksForUser(login) {
+  return getTasksForUser(login).filter(t => (t.statuses && t.statuses[login]) === "pending").length;
+}
+
+
 (async function () {
   if (window.FB && !window.FB.isReady()) {
     try { await window.FB.waitReady(); } catch (e) { /* ignore */ }

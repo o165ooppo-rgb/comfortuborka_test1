@@ -15,6 +15,13 @@ let session = null;
 
 bootstrapApp({}, function (s) {
   session = s;
+
+  // Работник не должен видеть главную с услугами — у него отдельная страница
+  if (session.role === "worker") {
+    window.location.href = "worker.html";
+    return;
+  }
+
   startHeartbeatLoop();
   applySettings();
   renderNav();
@@ -22,9 +29,10 @@ bootstrapApp({}, function (s) {
   renderOrderHistory();
   renderSessionBanner();
 
-  // Инициализируем чат для сотрудников/бухгалтеров (директор использует свою панель)
-  if (session.role === "worker" || session.role === "accountant") {
+  // Инициализируем чат для бухгалтеров (директор использует свою панель)
+  if (session.role === "accountant") {
     initStaffChat();
+    initMyTasks();
   }
 
   // Авто-обновление при изменении (storage event эмулируется firebase-sync)
@@ -34,6 +42,21 @@ bootstrapApp({}, function (s) {
     if (e.key === "kus_all_orders") renderOrderHistory();
     if (e.key === "kus_chats") refreshStaffChat();
     if (e.key === "kus_users") refreshArriveLeaveButtons();
+    if (e.key === "kus_tasks" && session.role === "accountant") {
+      renderMyTasks();
+      refreshMyTasksBadge();
+    }
+  });
+
+  // Перерисовка интерфейса при смене языка
+  window.addEventListener("lang-changed", () => {
+    applyI18n();
+    renderNav();
+    renderServices();
+    renderOrderHistory();
+    renderSessionBanner();
+    applySettings();
+    if (session.role === "accountant") renderMyTasks();
   });
 });
 
@@ -48,9 +71,9 @@ function applySettings() {
   });
   // Обновим телефон call-center
   const cc = document.querySelector(".call-center");
-  if (cc) cc.textContent = "Call Center " + (s.callCenter || "");
+  if (cc) cc.textContent = t("brand.callcenter") + " " + (s.callCenter || "");
   // Заголовок страницы
-  if (s.companyName) document.title = `${s.companyName} — ${s.companyTagline || "Услуги"}`;
+  if (s.companyName) document.title = `${s.companyName} — ${s.companyTagline || t("services.title")}`;
 }
 
 /* =========================================================
@@ -66,17 +89,17 @@ function renderNav() {
     navRight.innerHTML = `
       <span class="user-chip"><i class="fa-solid fa-user"></i> ${escapeHtml(session.fullName)}</span>
       <button onclick="openTurnstile('check_in')" class="nav-button nav-button-arrive" id="navArriveBtn">
-        <i class="fa-solid fa-right-to-bracket"></i><span class="btn-text">Я пришёл</span>
+        <i class="fa-solid fa-right-to-bracket"></i><span class="btn-text">${t("nav.arrive")}</span>
       </button>
       <button onclick="openTurnstile('check_out')" class="nav-button nav-button-leave" id="navLeaveBtn">
-        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">Я ушёл</span>
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.leave")}</span>
       </button>
       <button onclick="toggleStaffChat()" class="nav-button nav-button-chat" id="navChatBtn">
-        <i class="fa-solid fa-comments"></i><span class="btn-text">Чат</span>
+        <i class="fa-solid fa-comments"></i><span class="btn-text">${t("nav.chat")}</span>
         <span id="navChatBadge" class="nav-chat-badge" style="display:none">0</span>
       </button>
       <button onclick="doLogout()" class="nav-button nav-button-danger">
-        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">Выйти</span>
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.logout")}</span>
       </button>
     `;
     refreshArriveLeaveButtons();
@@ -87,20 +110,20 @@ function renderNav() {
     navRight.innerHTML = `
       <span class="user-chip"><i class="fa-solid fa-calculator"></i> ${escapeHtml(session.fullName)}</span>
       <button onclick="openTurnstile('check_in')" class="nav-button nav-button-arrive" id="navArriveBtn">
-        <i class="fa-solid fa-right-to-bracket"></i><span class="btn-text">Я пришёл</span>
+        <i class="fa-solid fa-right-to-bracket"></i><span class="btn-text">${t("nav.arrive")}</span>
       </button>
       <button onclick="openTurnstile('check_out')" class="nav-button nav-button-leave" id="navLeaveBtn">
-        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">Я ушёл</span>
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.leave")}</span>
       </button>
       <button onclick="toggleStaffChat()" class="nav-button nav-button-chat" id="navChatBtn">
-        <i class="fa-solid fa-comments"></i><span class="btn-text">Чат</span>
+        <i class="fa-solid fa-comments"></i><span class="btn-text">${t("nav.chat")}</span>
         <span id="navChatBadge" class="nav-chat-badge" style="display:none">0</span>
       </button>
       <button onclick="window.location.href='accountant.html'" class="nav-button">
-        <i class="fa-solid fa-calculator"></i><span class="btn-text">Бухгалтер</span>
+        <i class="fa-solid fa-calculator"></i><span class="btn-text">${t("nav.accountant")}</span>
       </button>
       <button onclick="doLogout()" class="nav-button nav-button-danger">
-        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">Выйти</span>
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.logout")}</span>
       </button>
     `;
     refreshArriveLeaveButtons();
@@ -111,10 +134,10 @@ function renderNav() {
   navRight.innerHTML = `
     <span class="user-chip user-chip-dir"><i class="fa-solid fa-shield-halved"></i> ${escapeHtml(session.fullName)}</span>
     <button onclick="window.location.href='director.html'" class="nav-button nav-button-dark">
-      <i class="fa-solid fa-shield-halved"></i><span class="btn-text">Панель директора</span>
+      <i class="fa-solid fa-shield-halved"></i><span class="btn-text">${t("nav.directorPanel")}</span>
     </button>
     <button onclick="doLogout()" class="nav-button nav-button-danger">
-      <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">Выйти</span>
+      <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.logout")}</span>
     </button>
   `;
 }
@@ -127,14 +150,14 @@ function renderSessionBanner() {
   el.innerHTML = `
     <div class="session-info">
       <span class="dot" style="background:${roleColor}"></span>
-      Вы вошли как <strong>${escapeHtml(session.fullName)}</strong>
+      ${t("session.loggedAs")} <strong>${escapeHtml(session.fullName)}</strong>
       <span class="role-tag" style="border-color:${roleColor};color:${roleColor}">${roleLabel(session.role)}</span>
     </div>
   `;
 }
 
 function doLogout() {
-  if (!confirm("Выйти из аккаунта?")) return;
+  if (!confirm(t("session.logoutConfirm"))) return;
   logout();
   window.location.href = "login.html";
 }
@@ -160,7 +183,7 @@ function showToast(type, title, text) {
 }
 
 /* =========================================================
-   РЕНДЕР УСЛУГ (из редактируемой базы)
+   РЕНДЕР УСЛУГ (без цены)
 ========================================================= */
 function renderServices() {
   const grid = document.querySelector(".service-grid");
@@ -173,23 +196,23 @@ function renderServices() {
     grid.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1">
         <i class="fa-solid fa-broom"></i>
-        <p>Услуги пока не добавлены. Директор может добавить их в панели управления.</p>
+        <p>${escapeHtml(t("services.empty"))}</p>
       </div>`;
     return;
   }
 
   services.forEach((s, i) => {
     const card = document.createElement("div");
-    card.className = "service-card";
+    card.className = "service-card service-card-simple";
     card.style.setProperty("--i", i);
-    const unit = s.unit || "м²";
+    const title = tService(s, "title");
+    const description = tService(s, "description");
     card.innerHTML = `
       <div class="service-icon"><i class="fa-solid ${escapeHtml(s.icon || "fa-broom")}"></i></div>
-      <h3>${escapeHtml(s.title)}</h3>
-      <p class="muted">${escapeHtml(s.description || "")}</p>
-      <div class="service-price">${(s.price || 0).toLocaleString("ru-RU")} Сум <span style="font-size:13px;color:var(--muted);font-weight:500">/ ${escapeHtml(unit)}</span></div>
-      <button class="primary" onclick="openServiceModal('${s.id}')">
-        <i class="fa-solid fa-cart-shopping"></i> Заказать
+      <h3>${escapeHtml(title)}</h3>
+      <p class="muted">${escapeHtml(description)}</p>
+      <button class="primary" onclick="openOrderForm('${s.id}')">
+        <i class="fa-solid fa-cart-shopping"></i> ${t("services.order")}
       </button>
     `;
     grid.appendChild(card);
@@ -197,56 +220,140 @@ function renderServices() {
 }
 
 /* =========================================================
-   МОДАЛКИ ЗАКАЗА
+   ОФОРМЛЕНИЕ ЗАКАЗА (новая логика — без модалки услуги)
 ========================================================= */
-function openServiceModal(id) {
-  currentService = getServiceById(id);
+function canCreateOrder() {
+  return session && (session.role === "director" || session.role === "accountant");
+}
+
+function openOrderForm(serviceId) {
+  currentService = getServiceById(serviceId);
   if (!currentService) {
-    showToast("error", "Ошибка", "Услуга не найдена");
+    showToast("error", t("common.error"), t("dir.att.notFound"));
     return;
   }
-  document.getElementById("serviceTitle").textContent = currentService.title;
-  document.getElementById("serviceDescription").textContent = currentService.description || "";
-  document.getElementById("servicePrice").textContent = (currentService.price || 0).toLocaleString("ru-RU");
-  document.getElementById("squareMeters").value = 1;
-  // Подпись единицы
-  const ulabel = document.getElementById("quantityLabel");
-  if (ulabel) ulabel.textContent = `Количество (${currentService.unit || "м²"})`;
-  updateTotalPrice();
-  document.getElementById("modal").classList.add("open");
-}
 
-function closeModal() {
-  document.getElementById("modal").classList.remove("open");
-}
-
-function updateTotalPrice() {
-  const qty = parseInt(document.getElementById("squareMeters").value) || 1;
-  const total = (currentService?.price || 0) * qty;
-  document.getElementById("totalServicePrice").textContent = total.toLocaleString("ru-RU");
-}
-
-function addToOrder() {
-  closeModal();
-  const total = (currentService.price * (parseInt(document.getElementById("squareMeters").value) || 1));
-  document.getElementById("orderService").textContent = currentService.title;
-  document.getElementById("orderTotal").textContent = total.toLocaleString("ru-RU") + " Сум";
-
-  const payBlock = document.getElementById("paymentStatusBlock");
-  if (session.role === "director" || session.role === "worker") {
-    payBlock.style.display = "block";
-  } else {
-    payBlock.style.display = "none";
+  // Только директор / бухгалтер могут оформлять заказы
+  if (!canCreateOrder()) {
+    showToast("error", t("common.error"), t("order.errNotAllowed"));
+    return;
   }
 
+  // Сброс полей
+  document.getElementById("name").value = "";
+  document.getElementById("phone").value = "";
+  document.getElementById("address").value = "";
+  document.getElementById("orderPrice").value = "";
+  document.getElementById("orderAdvance").value = "";
+  document.getElementById("orderRemaining").textContent = "0 " + t("services.currency");
+  document.getElementById("orderError").style.display = "none";
+  document.getElementById("addressStatus").style.display = "none";
+
+  // Авто-заполнение даты/времени
+  const now = new Date();
+  document.getElementById("date").value = now.toISOString().slice(0, 10);
+  document.getElementById("time").value = now.toTimeString().slice(0, 5);
+
+  // Подпись услуги
+  document.getElementById("orderFormService").textContent = tService(currentService, "title");
+
+  // Блоки оплаты — только директор/бухгалтер
+  document.getElementById("paymentStatusBlock").style.display = "block";
+  document.getElementById("orderPriceInfo").style.display = "none";
+
+  // Слушаем изменение цены/аванса для пересчёта "к доплате"
+  document.getElementById("orderPrice").oninput = updateRemaining;
+  document.getElementById("orderAdvance").oninput = updateRemaining;
+
+  // По умолчанию unpaid
+  const unpaidRadio = document.querySelector('input[name="payment"][value="unpaid"]');
+  if (unpaidRadio) unpaidRadio.checked = true;
+
+  applyI18n();
   document.getElementById("orderFormModal").classList.add("open");
+
+  // Авто-запуск определения адреса
+  orderDetectLocation();
 }
 
 function closeOrderForm() {
   document.getElementById("orderFormModal").classList.remove("open");
 }
 
+function updateRemaining() {
+  const price = parseInt(document.getElementById("orderPrice").value) || 0;
+  const advance = parseInt(document.getElementById("orderAdvance").value) || 0;
+  const remaining = Math.max(0, price - advance);
+  document.getElementById("orderRemaining").textContent =
+    remaining.toLocaleString("ru-RU") + " " + t("services.currency");
+}
+
+/* ===== Геолокация для адреса заказа ===== */
+let _orderGeo = null;
+
+function orderDetectLocation() {
+  const statusEl = document.getElementById("addressStatus");
+  const addressInput = document.getElementById("address");
+  const btn = document.getElementById("addressDetectBtn");
+
+  if (!navigator.geolocation) {
+    statusEl.style.display = "flex";
+    statusEl.className = "address-status address-status-err";
+    statusEl.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${t("order.locationFail")}`;
+    return;
+  }
+
+  statusEl.style.display = "flex";
+  statusEl.className = "address-status address-status-loading";
+  statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${t("order.locating")}`;
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      _orderGeo = { lat, lng, accuracy: pos.coords.accuracy };
+      try {
+        const lang = getCurrentLang();
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=${lang}`;
+        const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.display_name) {
+            addressInput.value = data.display_name;
+            _orderGeo.address = data.display_name;
+            statusEl.className = "address-status address-status-ok";
+            statusEl.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(data.display_name)}`;
+            btn.disabled = false;
+            return;
+          }
+        }
+        // Если адрес не найден — координаты
+        addressInput.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        statusEl.className = "address-status address-status-ok";
+        statusEl.innerHTML = `<i class="fa-solid fa-check"></i> ${addressInput.value}`;
+      } catch (e) {
+        addressInput.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        statusEl.className = "address-status address-status-ok";
+        statusEl.innerHTML = `<i class="fa-solid fa-check"></i> ${addressInput.value}`;
+      }
+      btn.disabled = false;
+    },
+    err => {
+      console.warn("Order geo error:", err);
+      _orderGeo = null;
+      statusEl.className = "address-status address-status-err";
+      statusEl.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${t("order.locationFail")}`;
+      btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+  );
+}
+
 function confirmOrder() {
+  const errEl = document.getElementById("orderError");
+  errEl.style.display = "none";
+
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const address = document.getElementById("address").value.trim();
@@ -254,37 +361,61 @@ function confirmOrder() {
   const time = document.getElementById("time").value;
 
   if (!name || !phone || !address || !date || !time) {
-    showToast("error", "Заполните все поля", "Имя, телефон, адрес, дата и время обязательны");
+    errEl.style.display = "block";
+    errEl.textContent = t("order.errFieldsDesc");
     return;
   }
 
-  const qty = parseInt(document.getElementById("squareMeters").value) || 1;
-  const total = currentService.price * qty;
+  if (!canCreateOrder()) {
+    errEl.style.display = "block";
+    errEl.textContent = t("order.errNotAllowed");
+    return;
+  }
+
+  const price = parseInt(document.getElementById("orderPrice").value) || 0;
+  const advanceStr = document.getElementById("orderAdvance").value;
+  const advance = advanceStr === "" ? -1 : parseInt(advanceStr);
+
+  if (price <= 0) {
+    errEl.style.display = "block";
+    errEl.textContent = t("order.errPrice");
+    return;
+  }
+  if (advance < 0) {
+    errEl.style.display = "block";
+    errEl.textContent = t("order.errAdvance");
+    return;
+  }
+  if (advance > price) {
+    errEl.style.display = "block";
+    errEl.textContent = t("order.errAdvanceHigh");
+    return;
+  }
 
   let payment = "unpaid";
   const payRadio = document.querySelector('input[name="payment"]:checked');
-  if (payRadio && (session.role === "director" || session.role === "worker")) {
-    payment = payRadio.value;
-  }
+  if (payRadio) payment = payRadio.value;
 
   const order = {
     name, phone, address, date, time,
     serviceKey: currentService.id,
-    serviceTitle: currentService.title,
-    quantity: qty,
-    total,
+    serviceTitle: tService(currentService, "title"),
+    serviceTitleRu: currentService.titleRu || currentService.title || "",
+    serviceTitleUz: currentService.titleUz || currentService.title || "",
+    serviceTitleEn: currentService.titleEn || currentService.title || "",
+    price,
+    advance,
+    total: price,                // для обратной совместимости
+    remaining: Math.max(0, price - advance),
     payment,
+    geo: _orderGeo ? { lat: _orderGeo.lat, lng: _orderGeo.lng, accuracy: _orderGeo.accuracy } : null,
   };
 
   const saved = saveOrder(order, session.login);
-
-  if (session.role === "worker") {
-    takeOrder(saved.id, session.login);
-  }
-
   closeOrderForm();
-  showToast("success", "Заказ создан", `Заказ #${saved.id.slice(-6)} (${paymentLabel(payment)})`);
+  showToast("success", t("order.created"), `#${saved.id.slice(-6)} (${paymentLabel(payment)})`);
   renderOrderHistory();
+  _orderGeo = null;
 }
 
 /* =========================================================
@@ -303,7 +434,7 @@ function renderOrderHistory() {
   }
 
   if (orders.length === 0) {
-    wrap.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open"></i><p>Пока нет заказов</p></div>`;
+    wrap.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open"></i><p>${escapeHtml(t("order.empty"))}</p></div>`;
     return;
   }
 
@@ -314,14 +445,25 @@ function renderOrderHistory() {
     const canTake = isWorker && !o.takenBy;
     const takenBadge = o.takenBy
       ? `<span class="badge"><i class="fa-solid fa-user-check"></i> ${escapeHtml(o.takenBy)}</span>`
-      : '<span class="badge badge-free"><i class="fa-solid fa-circle-dot"></i> свободен</span>';
+      : `<span class="badge badge-free"><i class="fa-solid fa-circle-dot"></i> ${t("order.free")}</span>`;
+
+    // Заголовок: пытаемся взять перевод услуги если есть
+    let serviceTitle = o.serviceTitle || "—";
+    const lang = getCurrentLang();
+    if (lang === "ru" && o.serviceTitleRu) serviceTitle = o.serviceTitleRu;
+    else if (lang === "uz" && o.serviceTitleUz) serviceTitle = o.serviceTitleUz;
+    else if (lang === "en" && o.serviceTitleEn) serviceTitle = o.serviceTitleEn;
+
+    const price = o.price || o.total || 0;
+    const advance = o.advance || 0;
+    const remaining = Math.max(0, price - advance);
 
     return `
       <div class="order-card">
         <div class="order-card-head">
           <div>
             <div class="order-id">#${o.id.slice(-6)}</div>
-            <div class="order-service">${escapeHtml(o.serviceTitle || "—")}</div>
+            <div class="order-service">${escapeHtml(serviceTitle)}</div>
           </div>
           <div class="pay-pill ${payClass}"><i class="fa-solid ${payIcon}"></i> ${paymentLabel(o.payment)}</div>
         </div>
@@ -331,10 +473,28 @@ function renderOrderHistory() {
           <div><i class="fa-solid fa-location-dot"></i> ${escapeHtml(o.address)}</div>
           <div><i class="fa-solid fa-calendar"></i> ${escapeHtml(o.date)} ${escapeHtml(o.time)}</div>
         </div>
+        <div class="order-card-money">
+          <div class="order-money-item">
+            <span class="muted">${t("receipt.price")}</span>
+            <strong>${price.toLocaleString("ru-RU")}</strong>
+          </div>
+          <div class="order-money-item">
+            <span class="muted">${t("receipt.advance")}</span>
+            <strong>${advance.toLocaleString("ru-RU")}</strong>
+          </div>
+          <div class="order-money-item order-money-remaining">
+            <span class="muted">${t("receipt.remaining")}</span>
+            <strong>${remaining.toLocaleString("ru-RU")}</strong>
+          </div>
+        </div>
         <div class="order-card-foot">
-          <strong>${(o.total || 0).toLocaleString("ru-RU")} Сум</strong>
           ${takenBadge}
-          ${canTake ? `<button class="primary small" onclick="handleTakeOrder('${o.id}')"><i class="fa-solid fa-hand"></i> Взять</button>` : ""}
+          <div class="order-card-actions">
+            <button class="ghost-btn small" onclick="openReceipt('${o.id}')">
+              <i class="fa-solid fa-receipt"></i> ${t("receipt.show")}
+            </button>
+            ${canTake ? `<button class="primary small" onclick="handleTakeOrder('${o.id}')"><i class="fa-solid fa-hand"></i> ${t("order.take")}</button>` : ""}
+          </div>
         </div>
       </div>
     `;
@@ -343,8 +503,8 @@ function renderOrderHistory() {
 
 function handleTakeOrder(orderId) {
   const res = takeOrder(orderId, session.login);
-  if (!res.ok) showToast("error", "Не получилось", res.error);
-  else { showToast("success", "Заказ взят", "Удачи в работе!"); renderOrderHistory(); }
+  if (!res.ok) showToast("error", t("order.takeFail"), res.error);
+  else { showToast("success", t("order.taken"), t("order.takeOk")); renderOrderHistory(); }
 }
 
 /* =========================================================
@@ -545,11 +705,9 @@ function openTurnstile(type) {
 
   // Заголовки
   document.getElementById("turnstileTitle").textContent =
-    _tsType === "check_in" ? "Отметка прихода" : "Отметка ухода";
+    _tsType === "check_in" ? t("ts.checkInTitle") : t("ts.checkOutTitle");
   document.getElementById("turnstileSubtitle").textContent =
-    _tsType === "check_in"
-      ? "Сделайте селфи и подтвердите место — отчёт уйдёт директору"
-      : "Сделайте селфи перед уходом и подтвердите место";
+    _tsType === "check_in" ? t("ts.checkInDesc") : t("ts.checkOutDesc");
 
   // Сбрасываем UI
   setTsStep(1);
@@ -583,7 +741,7 @@ async function startTurnstileCamera() {
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     camErr.style.display = "flex";
-    camErr.querySelector("p").textContent = "Ваш браузер не поддерживает камеру. Откройте сайт в Chrome или Safari.";
+    camErr.querySelector("p").textContent = t("ts.camNotSupported");
     video.style.display = "none";
     document.getElementById("tsCaptureBtn").style.display = "none";
     return;
@@ -620,7 +778,7 @@ function tsCapturePhoto() {
   const canvas = document.getElementById("tsCanvas");
   const preview = document.getElementById("tsPreview");
   if (!video || !video.videoWidth) {
-    showToast("error", "Нет видео", "Подождите пока камера загрузится");
+    showToast("error", t("ts.errNoVideo"), t("ts.errNoVideoDesc"));
     return;
   }
 
@@ -688,15 +846,15 @@ function fetchTurnstileGeo() {
   const sub = document.getElementById("tsGeoSub");
   status.style.display = "flex";
   status.classList.remove("ts-geo-ok", "ts-geo-err");
-  title.textContent = "Определяем местоположение...";
-  sub.textContent = "Нажмите «Разрешить» во всплывающем окне браузера";
+  title.textContent = t("ts.geoLocating");
+  sub.textContent = t("ts.geoAllow");
   _tsGeoLoading = true;
 
   if (!navigator.geolocation) {
     _tsGeoLoading = false;
     status.classList.add("ts-geo-err");
-    title.textContent = "Геолокация недоступна";
-    sub.textContent = "Можно отправить отчёт без координат";
+    title.textContent = t("ts.geoUnavailable");
+    sub.textContent = t("ts.geoFailDesc");
     _tsGeo = null;
     return;
   }
@@ -708,12 +866,13 @@ function fetchTurnstileGeo() {
       const acc = pos.coords.accuracy;
       _tsGeo = { lat, lng, accuracy: acc, address: null };
 
-      title.textContent = `Координаты получены (точность ~${Math.round(acc)} м)`;
-      sub.textContent = "Определяем адрес...";
+      title.textContent = t("ts.geoOk", { acc: Math.round(acc) });
+      sub.textContent = t("ts.geoFindingAddr");
 
       // Reverse geocoding через бесплатный OpenStreetMap Nominatim
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=ru`;
+        const lang = (typeof getCurrentLang === "function") ? getCurrentLang() : "ru";
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=${lang}`;
         const resp = await fetch(url, { headers: { "Accept": "application/json" } });
         if (resp.ok) {
           const data = await resp.json();
@@ -738,10 +897,10 @@ function fetchTurnstileGeo() {
       console.warn("Geo error:", err);
       _tsGeoLoading = false;
       status.classList.add("ts-geo-err");
-      title.textContent = "Не удалось определить место";
-      let msg = "Можно отправить отчёт без координат, но директору будет сложнее проверить.";
-      if (err.code === 1) msg = "Доступ к геолокации запрещён. Разрешите в настройках браузера.";
-      else if (err.code === 3) msg = "Превышено время ожидания. Попробуйте ещё раз или отправьте без координат.";
+      title.textContent = t("ts.geoFail");
+      let msg = t("ts.geoFailDesc");
+      if (err.code === 1) msg = t("ts.geoDenied");
+      else if (err.code === 3) msg = t("ts.geoTimeout");
       sub.textContent = msg;
       _tsGeo = null;
     },
@@ -760,7 +919,7 @@ function tsSubmit() {
     return;
   }
   if (_tsGeoLoading) {
-    errBox.textContent = "Подождите — определяем местоположение...";
+    errBox.textContent = t("ts.errWaitGeo");
     errBox.style.display = "block";
     return;
   }
@@ -779,7 +938,7 @@ function tsSubmit() {
 
   const res = addAttendance(record);
   if (!res.ok) {
-    errBox.textContent = res.error || "Не удалось сохранить отчёт";
+    errBox.textContent = res.error || t("ts.errSave");
     errBox.style.display = "block";
     return;
   }
@@ -787,8 +946,8 @@ function tsSubmit() {
   closeTurnstile();
   showToast(
     "success",
-    _tsType === "check_in" ? "Приход отмечен" : "Уход отмечен",
-    "Отчёт отправлен директору"
+    _tsType === "check_in" ? t("ts.successIn") : t("ts.successOut"),
+    t("ts.successDesc")
   );
   refreshArriveLeaveButtons();
 }
@@ -798,4 +957,271 @@ function closeTurnstile() {
   document.getElementById("turnstileModal").classList.remove("open");
   _tsPhotoDataUrl = null;
   _tsGeo = null;
+}
+
+/* =========================================================
+   ЧЕК ЗАКАЗА
+========================================================= */
+let _currentReceiptOrderId = null;
+
+function openReceipt(orderId) {
+  const order = getAllOrders().find(o => o.id === orderId);
+  if (!order) {
+    showToast("error", t("common.error"), t("dir.att.notFound"));
+    return;
+  }
+  _currentReceiptOrderId = orderId;
+  document.getElementById("receiptBody").innerHTML = buildReceiptHtml(order);
+
+  // Кнопка отправки сотруднику — только для директора/бухгалтера
+  const sendBtn = document.getElementById("receiptSendBtn");
+  if (sendBtn) {
+    sendBtn.style.display = canCreateOrder() ? "inline-flex" : "none";
+  }
+
+  document.getElementById("receiptModal").classList.add("open");
+}
+
+function closeReceipt() {
+  document.getElementById("receiptModal").classList.remove("open");
+  _currentReceiptOrderId = null;
+}
+
+function buildReceiptHtml(order) {
+  const settings = getSettings();
+  const company = settings.companyName || "Komfort Uborka";
+  const callCenter = settings.callCenter || "";
+
+  const lang = getCurrentLang();
+  let serviceTitle = order.serviceTitle || "—";
+  if (lang === "ru" && order.serviceTitleRu) serviceTitle = order.serviceTitleRu;
+  else if (lang === "uz" && order.serviceTitleUz) serviceTitle = order.serviceTitleUz;
+  else if (lang === "en" && order.serviceTitleEn) serviceTitle = order.serviceTitleEn;
+
+  const price = order.price || order.total || 0;
+  const advance = order.advance || 0;
+  const remaining = Math.max(0, price - advance);
+
+  let payLabel, payColor;
+  if (order.payment === "paid") {
+    payLabel = t("receipt.paid"); payColor = "#00b87a";
+  } else if (order.payment === "draft") {
+    payLabel = t("receipt.draft"); payColor = "#f59e0b";
+  } else {
+    payLabel = t("receipt.unpaid"); payColor = "#ef4444";
+  }
+
+  const createdAt = new Date(order.createdAt);
+  const createdStr = createdAt.toLocaleString(lang === "uz" ? "uz-UZ" : (lang === "en" ? "en-US" : "ru-RU"));
+
+  return `
+    <div class="receipt-paper">
+      <div class="receipt-head">
+        <div class="receipt-logo"><i class="fa-solid fa-broom"></i></div>
+        <div class="receipt-company">${escapeHtml(company)}</div>
+        ${callCenter ? `<div class="receipt-contact"><i class="fa-solid fa-phone"></i> ${escapeHtml(callCenter)}</div>` : ""}
+        <div class="receipt-divider"></div>
+        <div class="receipt-id">${t("receipt.no")}${order.id.slice(-6).toUpperCase()}</div>
+        <div class="receipt-date">${escapeHtml(createdStr)}</div>
+      </div>
+
+      <div class="receipt-rows">
+        <div class="receipt-row"><span class="muted">${t("receipt.service")}</span><strong>${escapeHtml(serviceTitle)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.client")}</span><strong>${escapeHtml(order.name)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.phone")}</span><strong>${escapeHtml(order.phone)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.address")}</span><strong>${escapeHtml(order.address)}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.scheduled")}</span><strong>${escapeHtml(order.date)} ${escapeHtml(order.time)}</strong></div>
+      </div>
+
+      <div class="receipt-divider"></div>
+
+      <div class="receipt-money">
+        <div class="receipt-row"><span class="muted">${t("receipt.price")}</span><strong>${price.toLocaleString("ru-RU")} ${t("services.currency")}</strong></div>
+        <div class="receipt-row"><span class="muted">${t("receipt.advance")}</span><strong>${advance.toLocaleString("ru-RU")} ${t("services.currency")}</strong></div>
+        <div class="receipt-row receipt-row-total"><span>${t("receipt.remaining")}</span><strong>${remaining.toLocaleString("ru-RU")} ${t("services.currency")}</strong></div>
+      </div>
+
+      <div class="receipt-status" style="background:${payColor}">
+        ${payLabel}
+      </div>
+
+      <div class="receipt-foot">
+        <p>${t("receipt.thanks")}</p>
+      </div>
+    </div>
+  `;
+}
+
+function printReceipt() {
+  if (!_currentReceiptOrderId) return;
+  const order = getAllOrders().find(o => o.id === _currentReceiptOrderId);
+  if (!order) return;
+  const html = buildReceiptHtml(order);
+  const win = window.open("", "_blank", "width=500,height=800");
+  win.document.write(`
+    <html><head><title>${t("receipt.title")} #${order.id.slice(-6)}</title>
+    <link rel="stylesheet" href="style.css"/>
+    <style>body{padding:20px;background:#fff}</style>
+    </head><body>${html}</body></html>
+  `);
+  win.document.close();
+  setTimeout(() => { win.print(); }, 500);
+}
+
+/* ===== Отправка чека сотруднику ===== */
+function openSendReceiptModal() {
+  if (!_currentReceiptOrderId) return;
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  const list = document.getElementById("receiptStaffList");
+
+  if (users.length === 0) {
+    list.innerHTML = `<div class="empty-state"><p>${escapeHtml(t("receipt.noStaff"))}</p></div>`;
+  } else {
+    list.innerHTML = users.map(u => `
+      <label class="staff-pick-item">
+        <input type="checkbox" class="staff-pick-cb" data-login="${escapeHtml(u.login)}"/>
+        <div class="staff-pick-avatar"><i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : 'fa-user'}"></i></div>
+        <div class="staff-pick-info">
+          <div class="staff-pick-name">${escapeHtml(u.fullName || u.login)}</div>
+          <div class="staff-pick-role muted">${roleLabel(u.role)}</div>
+        </div>
+        <i class="fa-solid fa-check staff-pick-check"></i>
+      </label>
+    `).join("");
+  }
+
+  document.getElementById("sendReceiptModal").classList.add("open");
+}
+
+function closeSendReceiptModal() {
+  document.getElementById("sendReceiptModal").classList.remove("open");
+}
+
+function sendReceiptToStaff() {
+  if (!_currentReceiptOrderId) return;
+  const checked = document.querySelectorAll("#receiptStaffList .staff-pick-cb:checked");
+  if (checked.length === 0) {
+    showToast("error", t("common.error"), t("dir.tasks.errNobody"));
+    return;
+  }
+  const toLogins = Array.from(checked).map(cb => cb.dataset.login);
+  const order = getAllOrders().find(o => o.id === _currentReceiptOrderId);
+  if (!order) return;
+
+  const lang = getCurrentLang();
+  let serviceTitle = order.serviceTitle || "—";
+  if (lang === "ru" && order.serviceTitleRu) serviceTitle = order.serviceTitleRu;
+  else if (lang === "uz" && order.serviceTitleUz) serviceTitle = order.serviceTitleUz;
+  else if (lang === "en" && order.serviceTitleEn) serviceTitle = order.serviceTitleEn;
+
+  const price = order.price || order.total || 0;
+
+  const taskText = `${t("receipt.chatLabel")}\n\n${t("receipt.service")}: ${serviceTitle}\n${t("receipt.client")}: ${order.name}\n${t("receipt.phone")}: ${order.phone}\n${t("receipt.address")}: ${order.address}\n${t("receipt.scheduled")}: ${order.date} ${order.time}\n${t("receipt.price")}: ${price.toLocaleString("ru-RU")} ${t("services.currency")}`;
+
+  const res = createTask(taskText, session.login, toLogins, { receiptOrderId: order.id });
+  if (!res.ok) {
+    showToast("error", t("common.error"), res.error || "");
+    return;
+  }
+  closeSendReceiptModal();
+  closeReceipt();
+  showToast("success", t("receipt.sent"), t("receipt.sentTo", { n: toLogins.length }));
+}
+
+/* =========================================================
+   МОИ ЗАДАНИЯ (сотрудник)
+========================================================= */
+let _myTasksOpen = false;
+
+function initMyTasks() {
+  const bubble = document.getElementById("myTasksBubble");
+  if (bubble) bubble.style.display = "flex";
+  renderMyTasks();
+  refreshMyTasksBadge();
+  // обновлять каждые 5 сек
+  setInterval(refreshMyTasksBadge, 5000);
+}
+
+function refreshMyTasksBadge() {
+  const badge = document.getElementById("myTasksBadge");
+  if (!badge) return;
+  const n = countNewTasksForUser(session.login);
+  if (n > 0) {
+    badge.textContent = n;
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function toggleMyTasks() {
+  const panel = document.getElementById("myTasksPanel");
+  if (!panel) return;
+  _myTasksOpen = !_myTasksOpen;
+  if (_myTasksOpen) {
+    renderMyTasks();
+    panel.style.display = "flex";
+  } else {
+    panel.style.display = "none";
+  }
+}
+
+function renderMyTasks() {
+  const list = document.getElementById("myTasksList");
+  if (!list) return;
+  const tasks = getTasksForUser(session.login);
+  if (tasks.length === 0) {
+    list.innerHTML = `<div class="empty-state" style="padding:30px"><i class="fa-regular fa-folder-open"></i><p>${escapeHtml(t("my.tasks.empty"))}</p></div>`;
+    return;
+  }
+  const users = getUsers();
+  list.innerHTML = tasks.map(task => {
+    const fromUser = users.find(u => u.login === task.fromLogin);
+    const fromName = fromUser ? (fromUser.fullName || fromUser.login) : task.fromLogin;
+    const status = task.statuses && task.statuses[session.login];
+    const isDone = status === "done";
+    const isNew = status === "pending";
+    const createdAt = new Date(task.createdAt);
+    const dateStr = createdAt.toLocaleString(getCurrentLang() === "uz" ? "uz-UZ" : (getCurrentLang() === "en" ? "en-US" : "ru-RU"));
+
+    const escText = escapeHtml(task.text).replace(/\n/g, "<br>");
+
+    const receiptBtn = task.receiptOrderId
+      ? `<button class="ghost-btn small" onclick="openReceipt('${task.receiptOrderId}')">
+           <i class="fa-solid fa-receipt"></i> ${t("receipt.show")}
+         </button>` : "";
+
+    return `
+      <div class="my-task-card ${isDone ? 'my-task-done' : ''}">
+        <div class="my-task-head">
+          <div class="my-task-from">
+            <i class="fa-solid fa-user-tie"></i>
+            <span class="muted">${t("my.tasks.from")}</span>
+            <strong>${escapeHtml(fromName)}</strong>
+          </div>
+          ${isNew ? `<span class="my-task-badge-new">${t("my.tasks.new")}</span>` : ""}
+          ${isDone ? `<span class="my-task-badge-done"><i class="fa-solid fa-check"></i> ${t("my.tasks.done")}</span>` : ""}
+        </div>
+        <div class="my-task-text">${escText}</div>
+        <div class="my-task-foot">
+          <span class="muted"><i class="fa-regular fa-clock"></i> ${escapeHtml(dateStr)}</span>
+          <div class="my-task-actions">
+            ${receiptBtn}
+            ${!isDone ? `<button class="primary small" onclick="handleMarkTaskDone('${task.id}')">
+              <i class="fa-solid fa-check"></i> ${t("my.tasks.markDone")}
+            </button>` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function handleMarkTaskDone(taskId) {
+  const res = markTaskDone(taskId, session.login);
+  if (res.ok) {
+    showToast("success", t("common.success"), t("my.tasks.completed"));
+    renderMyTasks();
+    refreshMyTasksBadge();
+  }
 }

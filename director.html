@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uz">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Панель директора — Komfort Uborka</title>
+  <title>Komfort Uborka — Director Panel</title>
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="director.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
@@ -11,54 +11,56 @@
 </head>
 <body class="director-body">
 
-  <!-- Sidebar -->
   <aside class="dir-sidebar">
     <div class="dir-brand">
       <i class="fa-solid fa-shield-halved"></i>
       <div>
         <div class="dir-brand-name">KOMFORT</div>
-        <div class="dir-brand-sub">Панель директора</div>
+        <div class="dir-brand-sub" data-i18n="dir.brandSub">Панель директора</div>
       </div>
     </div>
 
     <nav class="dir-nav">
-      <button class="dir-nav-btn active" data-tab="dashboard"><i class="fa-solid fa-gauge"></i> <span>Обзор</span></button>
-      <button class="dir-nav-btn" data-tab="employees"><i class="fa-solid fa-users"></i> <span>Сотрудники</span></button>
-      <button class="dir-nav-btn" data-tab="services"><i class="fa-solid fa-broom"></i> <span>Услуги</span></button>
-      <button class="dir-nav-btn" data-tab="attendance"><i class="fa-solid fa-id-card-clip"></i> <span>Посещаемость</span></button>
-      <button class="dir-nav-btn" data-tab="chat"><i class="fa-solid fa-comments"></i> <span>Чат</span> <span id="chatBadge" class="nav-badge" style="display:none">0</span></button>
-      <button class="dir-nav-btn" data-tab="orders"><i class="fa-solid fa-clipboard-list"></i> <span>Заказы</span></button>
-      <button class="dir-nav-btn" data-tab="clients"><i class="fa-solid fa-address-book"></i> <span>Клиенты</span></button>
-      <button class="dir-nav-btn" data-tab="settings"><i class="fa-solid fa-gear"></i> <span>Настройки</span></button>
-      <button class="dir-nav-btn" data-tab="logs"><i class="fa-solid fa-clock-rotate-left"></i> <span>Журнал</span></button>
+      <button class="dir-nav-btn active" data-tab="dashboard"><i class="fa-solid fa-gauge"></i> <span data-i18n="dir.tab.dashboard">Обзор</span></button>
+      <button class="dir-nav-btn" data-tab="employees"><i class="fa-solid fa-users"></i> <span data-i18n="dir.tab.employees">Сотрудники</span></button>
+      <button class="dir-nav-btn" data-tab="services"><i class="fa-solid fa-broom"></i> <span data-i18n="dir.tab.services">Услуги</span></button>
+      <button class="dir-nav-btn" data-tab="attendance"><i class="fa-solid fa-id-card-clip"></i> <span data-i18n="dir.tab.attendance">Посещаемость</span></button>
+      <button class="dir-nav-btn" data-tab="chat"><i class="fa-solid fa-comments"></i> <span data-i18n="dir.tab.chat">Чат</span> <span id="chatBadge" class="nav-badge" style="display:none">0</span></button>
+      <button class="dir-nav-btn" data-tab="tasks"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="dir.tab.tasks">Задания</span></button>
+      <button class="dir-nav-btn" data-tab="orders"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="dir.tab.orders">Заказы</span></button>
+      <button class="dir-nav-btn" data-tab="clients"><i class="fa-solid fa-address-book"></i> <span data-i18n="dir.tab.clients">Клиенты</span></button>
+      <button class="dir-nav-btn" data-tab="settings"><i class="fa-solid fa-gear"></i> <span data-i18n="dir.tab.settings">Настройки</span></button>
+      <button class="dir-nav-btn" data-tab="logs"><i class="fa-solid fa-clock-rotate-left"></i> <span data-i18n="dir.tab.logs">Журнал</span></button>
     </nav>
 
     <div class="dir-bottom">
+      <!-- Переключатель языка -->
+      <div id="dirLangSwitcher"></div>
+
       <div class="dir-user">
         <div class="dir-avatar"><i class="fa-solid fa-user-tie"></i></div>
         <div>
           <div class="dir-user-name" id="dirUserName">—</div>
-          <div class="dir-user-role">Директор</div>
+          <div class="dir-user-role" data-i18n="role.director">Директор</div>
         </div>
       </div>
       <button onclick="window.location.href='index.html'" class="dir-side-btn">
-        <i class="fa-solid fa-arrow-left"></i> <span>К сайту</span>
+        <i class="fa-solid fa-arrow-left"></i> <span data-i18n="nav.toSite">К сайту</span>
       </button>
       <button onclick="dirLogout()" class="dir-side-btn dir-side-btn-danger">
-        <i class="fa-solid fa-right-from-bracket"></i> <span>Выйти</span>
+        <i class="fa-solid fa-right-from-bracket"></i> <span data-i18n="nav.logout">Выйти</span>
       </button>
     </div>
   </aside>
 
-  <!-- Main -->
   <main class="dir-main">
 
     <!-- Tab: Dashboard -->
     <section class="dir-tab active" data-tab="dashboard">
       <div class="dir-head">
         <div>
-          <h1>Обзор</h1>
-          <p class="muted">Сводка по системе на сегодня</p>
+          <h1 data-i18n="dir.dashboard.title">Обзор</h1>
+          <p class="muted" data-i18n="dir.dashboard.sub">Сводка по системе на сегодня</p>
         </div>
       </div>
 
@@ -66,32 +68,32 @@
         <div class="stat-card stat-1">
           <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
           <div class="stat-num" id="statEmployees">0</div>
-          <div class="stat-label">Сотрудников всего</div>
+          <div class="stat-label" data-i18n="dir.stat.employees">Сотрудников всего</div>
         </div>
         <div class="stat-card stat-2">
           <div class="stat-icon"><i class="fa-solid fa-circle"></i></div>
           <div class="stat-num" id="statOnline">0</div>
-          <div class="stat-label">Онлайн сейчас</div>
+          <div class="stat-label" data-i18n="dir.stat.online">Онлайн сейчас</div>
         </div>
         <div class="stat-card stat-3">
           <div class="stat-icon"><i class="fa-solid fa-clipboard-list"></i></div>
           <div class="stat-num" id="statOrders">0</div>
-          <div class="stat-label">Заказов сегодня</div>
+          <div class="stat-label" data-i18n="dir.stat.orders">Заказов сегодня</div>
         </div>
         <div class="stat-card stat-4">
           <div class="stat-icon"><i class="fa-solid fa-coins"></i></div>
           <div class="stat-num" id="statRevenue">0</div>
-          <div class="stat-label">Выручка (Сум)</div>
+          <div class="stat-label" data-i18n="dir.stat.revenue">Выручка (Сум)</div>
         </div>
       </div>
 
       <div class="dir-grid-2">
         <div class="dir-panel">
-          <h3><i class="fa-solid fa-bolt"></i> Последние действия</h3>
+          <h3><i class="fa-solid fa-bolt"></i> <span data-i18n="dir.recent">Последние действия</span></h3>
           <div id="recentLogs" class="logs-list logs-list-compact"></div>
         </div>
         <div class="dir-panel">
-          <h3><i class="fa-solid fa-circle"></i> Кто онлайн</h3>
+          <h3><i class="fa-solid fa-circle"></i> <span data-i18n="dir.whoOnline">Кто онлайн</span></h3>
           <div id="onlineList" class="online-list"></div>
         </div>
       </div>
@@ -101,78 +103,75 @@
     <section class="dir-tab" data-tab="employees">
       <div class="dir-head">
         <div>
-          <h1>Сотрудники</h1>
-          <p class="muted">Создание и управление аккаунтами</p>
+          <h1 data-i18n="dir.emp.title">Сотрудники</h1>
+          <p class="muted" data-i18n="dir.emp.sub">Создание и управление аккаунтами</p>
         </div>
         <button class="primary" onclick="openCreateUserModal()">
-          <i class="fa-solid fa-user-plus"></i> <span>Создать аккаунт</span>
+          <i class="fa-solid fa-user-plus"></i> <span data-i18n="dir.emp.create">Создать аккаунт</span>
         </button>
       </div>
 
       <div id="employeesGrid" class="employees-grid"></div>
     </section>
 
-    <!-- Tab: Services (NEW) -->
+    <!-- Tab: Services -->
     <section class="dir-tab" data-tab="services">
       <div class="dir-head">
         <div>
-          <h1>Услуги</h1>
-          <p class="muted">Редактирование услуг сайта — изменения сразу появятся на главной странице</p>
+          <h1 data-i18n="dir.svc.title">Услуги</h1>
+          <p class="muted" data-i18n="dir.svc.sub">Редактирование услуг сайта</p>
         </div>
         <button class="primary" onclick="openServiceEditor()">
-          <i class="fa-solid fa-plus"></i> <span>Новая услуга</span>
+          <i class="fa-solid fa-plus"></i> <span data-i18n="dir.svc.new">Новая услуга</span>
         </button>
       </div>
       <div id="servicesEditorGrid" class="services-editor-grid"></div>
     </section>
 
-    <!-- Tab: Attendance (NEW) -->
+    <!-- Tab: Attendance -->
     <section class="dir-tab" data-tab="attendance">
       <div class="dir-head">
         <div>
-          <h1>Посещаемость</h1>
-          <p class="muted">Турникет: фото, время и адрес сотрудников</p>
+          <h1 data-i18n="dir.att.title">Посещаемость</h1>
+          <p class="muted" data-i18n="dir.att.sub">Турникет: фото, время и адрес сотрудников</p>
         </div>
         <div class="att-actions">
           <button class="ghost-btn" onclick="dirRefreshAttendance()">
-            <i class="fa-solid fa-rotate"></i> <span>Обновить</span>
+            <i class="fa-solid fa-rotate"></i> <span data-i18n="dir.att.refresh">Обновить</span>
           </button>
           <button class="danger-btn" onclick="dirClearAttendance()">
-            <i class="fa-solid fa-trash"></i> <span>Очистить всё</span>
+            <i class="fa-solid fa-trash"></i> <span data-i18n="dir.att.clearAll">Очистить всё</span>
           </button>
         </div>
       </div>
 
-      <!-- Сводка за сегодня -->
       <div id="attTodaySummary" class="att-today-summary"></div>
 
-      <!-- Фильтры -->
       <div class="att-filters">
         <div class="att-filter">
-          <label class="label">Сотрудник</label>
+          <label class="label" data-i18n="dir.att.filterUser">Сотрудник</label>
           <select id="attFilterUser" onchange="renderAttendance()">
-            <option value="">Все сотрудники</option>
+            <option value="" data-i18n="dir.att.filterAll">Все сотрудники</option>
           </select>
         </div>
         <div class="att-filter">
-          <label class="label">Тип</label>
+          <label class="label" data-i18n="dir.att.filterType">Тип</label>
           <select id="attFilterType" onchange="renderAttendance()">
-            <option value="">Все</option>
-            <option value="check_in">Только приходы</option>
-            <option value="check_out">Только уходы</option>
+            <option value="" data-i18n="dir.att.filterTypeAll">Все</option>
+            <option value="check_in" data-i18n="dir.att.filterIn">Только приходы</option>
+            <option value="check_out" data-i18n="dir.att.filterOut">Только уходы</option>
           </select>
         </div>
         <div class="att-filter">
-          <label class="label">С даты</label>
+          <label class="label" data-i18n="dir.att.filterFrom">С даты</label>
           <input type="date" id="attFilterFrom" onchange="renderAttendance()"/>
         </div>
         <div class="att-filter">
-          <label class="label">По дату</label>
+          <label class="label" data-i18n="dir.att.filterTo">По дату</label>
           <input type="date" id="attFilterTo" onchange="renderAttendance()"/>
         </div>
       </div>
 
-      <!-- Сетка карточек -->
       <div id="attendanceGrid" class="attendance-grid"></div>
     </section>
 
@@ -180,19 +179,19 @@
     <section class="dir-tab" data-tab="chat">
       <div class="dir-head">
         <div>
-          <h1>Чат с сотрудниками</h1>
-          <p class="muted">Отправляйте задания и сообщения</p>
+          <h1 data-i18n="dir.chat.title">Чат с сотрудниками</h1>
+          <p class="muted" data-i18n="dir.chat.sub">Отправляйте задания и сообщения</p>
         </div>
       </div>
       <div class="chat-shell">
         <aside class="chat-list" id="chatList"></aside>
         <div class="chat-window">
           <div class="chat-header" id="chatHeader">
-            <div class="muted">Выберите сотрудника слева</div>
+            <div class="muted" data-i18n="dir.chat.pickPerson">Выберите сотрудника слева</div>
           </div>
           <div class="chat-messages" id="chatMessages"></div>
           <div class="chat-input-row">
-            <input type="text" id="chatInput" placeholder="Сообщение или задание..." disabled/>
+            <input type="text" id="chatInput" data-i18n-ph="dir.chat.messagePh" placeholder="Сообщение или задание..." disabled/>
             <button id="chatSendBtn" class="primary" onclick="dirSendMessage()" disabled>
               <i class="fa-solid fa-paper-plane"></i>
             </button>
@@ -201,18 +200,66 @@
       </div>
     </section>
 
+    <!-- Tab: Tasks (НОВАЯ) -->
+    <section class="dir-tab" data-tab="tasks">
+      <div class="dir-head">
+        <div>
+          <h1 data-i18n="dir.tasks.title">Задания сотрудникам</h1>
+          <p class="muted" data-i18n="dir.tasks.sub">Отправьте задание одному или нескольким сотрудникам</p>
+        </div>
+      </div>
+
+      <div class="tasks-shell">
+        <!-- Левая колонка: ввод задания + кнопки -->
+        <div class="tasks-left">
+          <label class="label" data-i18n="dir.tasks.text">Текст задания</label>
+          <textarea id="taskText" class="task-textarea" data-i18n-ph="dir.tasks.textPh" placeholder="Например: Завтра объект — ул. Ленина 5, в 9:00"></textarea>
+          <div id="taskError" class="login-error" style="display:none"></div>
+          <button class="primary task-send-btn" onclick="dirSendTask()">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span data-i18n="dir.tasks.send">Отправить задание</span>
+          </button>
+
+          <!-- История отправленных заданий -->
+          <div class="tasks-recent">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> <span data-i18n="dir.tasks.recent">Отправленные задания</span></h3>
+            <div id="recentTasksList"></div>
+          </div>
+        </div>
+
+        <!-- Правая колонка: выбор сотрудников -->
+        <div class="tasks-right">
+          <div class="tasks-pick-head">
+            <span data-i18n="dir.tasks.pickStaff">Кому отправить</span>
+            <span class="muted" id="taskPickedCount">${0}</span>
+          </div>
+          <div class="tasks-pick-controls">
+            <button class="ghost-btn small" onclick="dirToggleAllStaff(true)">
+              <i class="fa-solid fa-check-double"></i>
+              <span data-i18n="dir.tasks.pickAll">Все</span>
+            </button>
+            <button class="ghost-btn small" onclick="dirToggleAllStaff(false)">
+              <i class="fa-solid fa-xmark"></i>
+              <span data-i18n="dir.tasks.clearAll">Снять</span>
+            </button>
+          </div>
+          <div id="taskStaffList" class="task-staff-list"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- Tab: Orders -->
     <section class="dir-tab" data-tab="orders">
       <div class="dir-head">
         <div>
-          <h1>Заказы</h1>
-          <p class="muted">Все заказы и управление статусом оплаты</p>
+          <h1 data-i18n="dir.ord.title">Заказы</h1>
+          <p class="muted" data-i18n="dir.ord.sub">Все заказы и управление статусом оплаты</p>
         </div>
         <div class="filters">
-          <button class="chip-btn active" data-filter="all">Все</button>
-          <button class="chip-btn" data-filter="paid">Оплачены</button>
-          <button class="chip-btn" data-filter="unpaid">Не оплачены</button>
-          <button class="chip-btn" data-filter="draft">Черновики</button>
+          <button class="chip-btn active" data-filter="all" data-i18n="dir.ord.fAll">Все</button>
+          <button class="chip-btn" data-filter="paid" data-i18n="dir.ord.fPaid">Оплачены</button>
+          <button class="chip-btn" data-filter="unpaid" data-i18n="dir.ord.fUnpaid">Не оплачены</button>
+          <button class="chip-btn" data-filter="draft" data-i18n="dir.ord.fDraft">Черновики</button>
         </div>
       </div>
       <div id="dirOrdersGrid" class="dir-orders-grid"></div>
@@ -222,20 +269,20 @@
     <section class="dir-tab" data-tab="clients">
       <div class="dir-head">
         <div>
-          <h1>Клиентская база</h1>
-          <p class="muted">Все клиенты, которые когда-либо делали заказ</p>
+          <h1 data-i18n="dir.cli.title">Клиентская база</h1>
+          <p class="muted" data-i18n="dir.cli.sub">Все клиенты, которые когда-либо делали заказ</p>
         </div>
-        <input type="text" id="clientSearch" class="search-input" placeholder="🔎 Поиск по имени или телефону..." oninput="renderClients()"/>
+        <input type="text" id="clientSearch" class="search-input" data-i18n-ph="dir.cli.searchPh" placeholder="🔎 Поиск..." oninput="renderClients()"/>
       </div>
       <div id="clientsGrid" class="clients-grid"></div>
     </section>
 
-    <!-- Tab: Settings (NEW) -->
+    <!-- Tab: Settings -->
     <section class="dir-tab" data-tab="settings">
       <div class="dir-head">
         <div>
-          <h1>Настройки сайта</h1>
-          <p class="muted">Название компании, контактные данные</p>
+          <h1 data-i18n="dir.set.title">Настройки сайта</h1>
+          <p class="muted" data-i18n="dir.set.sub">Название компании, контактные данные</p>
         </div>
       </div>
       <div id="settingsBody" class="settings-body"></div>
@@ -245,11 +292,11 @@
     <section class="dir-tab" data-tab="logs">
       <div class="dir-head">
         <div>
-          <h1>Журнал действий</h1>
-          <p class="muted">Все действия в системе</p>
+          <h1 data-i18n="dir.log.title">Журнал действий</h1>
+          <p class="muted" data-i18n="dir.log.sub">Все действия в системе</p>
         </div>
         <button class="ghost-btn" onclick="dirClearLogs()">
-          <i class="fa-solid fa-trash"></i> <span>Очистить журнал</span>
+          <i class="fa-solid fa-trash"></i> <span data-i18n="dir.log.clear">Очистить журнал</span>
         </button>
       </div>
       <div id="fullLogs" class="logs-list"></div>
@@ -260,74 +307,100 @@
   <!-- Modal: Create User -->
   <div id="createUserModal" class="modal" aria-hidden="true">
     <div class="modal-content">
-      <button class="close" onclick="closeCreateUserModal()" aria-label="Закрыть">&times;</button>
-      <h2>Новый аккаунт</h2>
-      <p class="muted">Логин и пароль вы передадите сотруднику лично</p>
+      <button class="close" onclick="closeCreateUserModal()" aria-label="Close">&times;</button>
+      <h2 data-i18n="dir.emp.newAccount">Новый аккаунт</h2>
+      <p class="muted" data-i18n="dir.emp.handover">Логин и пароль вы передадите сотруднику лично</p>
 
-      <label class="label">ФИО / Имя</label>
-      <input type="text" id="newFullName" placeholder="Иван Иванов"/>
+      <label class="label" data-i18n="dir.emp.fullName">ФИО / Имя</label>
+      <input type="text" id="newFullName" data-i18n-ph="dir.emp.fullNamePh" placeholder="Имя"/>
 
-      <label class="label">Логин</label>
-      <input type="text" id="newLogin" placeholder="ivan_worker" autocomplete="off"/>
+      <label class="label" data-i18n="login.login">Логин</label>
+      <input type="text" id="newLogin" data-i18n-ph="dir.emp.loginPh" placeholder="login" autocomplete="off"/>
 
-      <label class="label">Пароль</label>
-      <input type="text" id="newPassword" placeholder="придумайте пароль" autocomplete="off"/>
+      <label class="label" data-i18n="login.password">Пароль</label>
+      <input type="text" id="newPassword" data-i18n-ph="dir.emp.passwordPh" placeholder="password" autocomplete="off"/>
 
-      <label class="label">Телефон (необязательно)</label>
+      <label class="label" data-i18n="dir.emp.phone">Телефон</label>
       <input type="tel" id="newPhone" placeholder="+998 90 ..."/>
 
-      <label class="label">Роль</label>
+      <label class="label" data-i18n="dir.emp.role">Роль</label>
       <select id="newRole">
-        <option value="worker">Сотрудник</option>
-        <option value="accountant">Бухгалтер</option>
-        <option value="director">Директор</option>
+        <option value="worker" data-i18n="role.worker">Сотрудник</option>
+        <option value="accountant" data-i18n="role.accountant">Бухгалтер</option>
+        <option value="director" data-i18n="role.director">Директор</option>
       </select>
 
       <div id="createUserError" class="login-error"></div>
 
       <button class="primary" onclick="dirCreateUser()">
-        <i class="fa-solid fa-check"></i> <span>Создать</span>
+        <i class="fa-solid fa-check"></i> <span data-i18n="common.confirm">Создать</span>
       </button>
     </div>
   </div>
 
-  <!-- Modal: Service Editor (NEW) -->
+  <!-- Modal: Service Editor -->
   <div id="serviceEditorModal" class="modal" aria-hidden="true">
     <div class="modal-content modal-content-wide">
-      <button class="close" onclick="closeServiceEditor()" aria-label="Закрыть">&times;</button>
-      <h2 id="svcEditorTitle">Новая услуга</h2>
-      <p class="muted">Заполните карточку услуги — она появится на главной странице</p>
+      <button class="close" onclick="closeServiceEditor()" aria-label="Close">&times;</button>
+      <h2 id="svcEditorTitle" data-i18n="dir.svc.new">Новая услуга</h2>
+      <p class="muted" data-i18n="dir.svc.formSub">Заполните карточку услуги</p>
 
-      <label class="label">Название услуги</label>
-      <input type="text" id="svcTitle" placeholder="напр. Уборка офиса"/>
-
-      <label class="label">Описание</label>
-      <input type="text" id="svcDescription" placeholder="напр. Поддержание порядка в офисных помещениях"/>
-
-      <div class="grid-2">
+      <!-- Названия на 3 языках -->
+      <div class="i18n-fields">
         <div>
-          <label class="label">Цена (Сум)</label>
-          <input type="number" id="svcPrice" min="0" placeholder="5000"/>
+          <label class="label" data-i18n="dir.svc.nameRu">Название (RU)</label>
+          <input type="text" id="svcTitleRu" data-i18n-ph="dir.svc.titlePh" placeholder=""/>
         </div>
         <div>
-          <label class="label">Единица измерения</label>
-          <input type="text" id="svcUnit" placeholder="м² / шт / час"/>
+          <label class="label" data-i18n="dir.svc.nameUz">Название (UZ)</label>
+          <input type="text" id="svcTitleUz" data-i18n-ph="dir.svc.titlePh" placeholder=""/>
+        </div>
+        <div>
+          <label class="label" data-i18n="dir.svc.nameEn">Название (EN)</label>
+          <input type="text" id="svcTitleEn" data-i18n-ph="dir.svc.titlePh" placeholder=""/>
         </div>
       </div>
 
-      <label class="label">Иконка</label>
+      <!-- Описания на 3 языках -->
+      <div class="i18n-fields">
+        <div>
+          <label class="label" data-i18n="dir.svc.descRu">Описание (RU)</label>
+          <input type="text" id="svcDescriptionRu" data-i18n-ph="dir.svc.descPh" placeholder=""/>
+        </div>
+        <div>
+          <label class="label" data-i18n="dir.svc.descUz">Описание (UZ)</label>
+          <input type="text" id="svcDescriptionUz" data-i18n-ph="dir.svc.descPh" placeholder=""/>
+        </div>
+        <div>
+          <label class="label" data-i18n="dir.svc.descEn">Описание (EN)</label>
+          <input type="text" id="svcDescriptionEn" data-i18n-ph="dir.svc.descPh" placeholder=""/>
+        </div>
+      </div>
+
+      <div class="grid-2" style="display:none">
+        <div>
+          <label class="label" data-i18n="dir.svc.price">Цена (Сум)</label>
+          <input type="number" id="svcPrice" min="0" placeholder="0"/>
+        </div>
+        <div>
+          <label class="label" data-i18n="dir.svc.unit">Единица измерения</label>
+          <input type="text" id="svcUnit" data-i18n-ph="dir.svc.unitPh" placeholder="м²"/>
+        </div>
+      </div>
+
+      <label class="label" data-i18n="dir.svc.icon">Иконка</label>
       <input type="hidden" id="svcIconInput"/>
       <div class="svc-icon-preview">
         <div class="preview-box"><i id="svcIconPreview" class="fa-solid fa-broom"></i></div>
         <div>
-          <div class="preview-label">Превью карточки</div>
-          <div class="muted">Выберите иконку из списка ниже</div>
+          <div class="preview-label" data-i18n="dir.svc.preview">Превью карточки</div>
+          <div class="muted" data-i18n="dir.svc.iconPick">Выберите иконку</div>
         </div>
       </div>
       <div id="iconPicker" class="icon-picker"></div>
 
       <div class="switch-row">
-        <span class="switch-label">Услуга активна (видна на сайте)</span>
+        <span class="switch-label" data-i18n="dir.svc.active">Услуга активна</span>
         <label class="switch">
           <input type="checkbox" id="svcActive" checked/>
           <span class="switch-slider"></span>
@@ -337,26 +410,66 @@
       <div id="svcError" class="login-error"></div>
 
       <button class="primary" onclick="dirSaveService()" style="margin-top:14px;width:100%">
-        <i class="fa-solid fa-floppy-disk"></i> <span>Сохранить услугу</span>
+        <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="dir.svc.save">Сохранить услугу</span>
       </button>
     </div>
   </div>
 
-  <!-- Modal: Attendance Detail (NEW) -->
+  <!-- Modal: Attendance Detail -->
   <div id="attDetailModal" class="modal" aria-hidden="true">
     <div class="modal-content modal-content-wide">
-      <button class="close" onclick="closeAttendanceDetail()" aria-label="Закрыть">&times;</button>
-      <h2 id="attDetailTitle">Запись турникета</h2>
+      <button class="close" onclick="closeAttendanceDetail()" aria-label="Close">&times;</button>
+      <h2 id="attDetailTitle" data-i18n="dir.att.recordTitle">Запись турникета</h2>
       <div id="attDetailBody"></div>
     </div>
   </div>
 
-  <!-- Toast container -->
+  <!-- Modal: Receipt (NEW) -->
+  <div id="receiptModal" class="modal" aria-hidden="true">
+    <div class="modal-content receipt-modal">
+      <button class="close" onclick="closeReceipt()" aria-label="Close">&times;</button>
+      <div id="receiptBody"></div>
+      <div class="receipt-actions">
+        <button class="primary" onclick="openSendReceiptModal()" id="receiptSendBtn">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span data-i18n="receipt.sendToStaff">Отправить сотруднику</span>
+        </button>
+        <button class="ghost-btn" onclick="printReceipt()">
+          <i class="fa-solid fa-print"></i>
+          <span data-i18n="receipt.print">Печать</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Send Receipt -->
+  <div id="sendReceiptModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" onclick="closeSendReceiptModal()" aria-label="Close">&times;</button>
+      <h2 data-i18n="receipt.pickStaff">Выберите сотрудника</h2>
+      <p class="muted" data-i18n="receipt.pickStaffSub">Выберите кому отправить чек как задание</p>
+      <div id="receiptStaffList" class="staff-pick-list"></div>
+      <button class="primary" onclick="sendReceiptToStaff()" style="width:100%;margin-top:14px">
+        <i class="fa-solid fa-paper-plane"></i>
+        <span data-i18n="common.send">Отправить</span>
+      </button>
+    </div>
+  </div>
+
   <div id="toastRoot" class="toast-root" aria-live="polite"></div>
 
-  <script src="firebase-config.js"></script>
+  <script src="i18n.js"></script>
   <script src="firebase-sync.js"></script>
   <script src="auth.js"></script>
   <script src="director.js"></script>
+  <script>
+    // Рисуем переключатель языка в сайдбаре
+    document.getElementById("dirLangSwitcher").innerHTML = renderLangSwitcherCompact();
+    applyI18n();
+    // Перерисовка при смене языка
+    window.addEventListener("lang-changed", () => {
+      document.getElementById("dirLangSwitcher").innerHTML = renderLangSwitcherCompact();
+    });
+  </script>
 </body>
 </html>

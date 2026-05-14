@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Komfort Uborka — Worker</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+  </div>
+
+  <!-- Шапка -->
+  <header class="navbar">
+    <div class="nav-left">
+      <div class="social-icons">
+        <a href="https://instagram.com/yourprofile" target="_blank" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+        <a href="https://t.me/komfort_uborka_samarkand" target="_blank" aria-label="Telegram"><i class="fab fa-telegram-plane"></i></a>
+      </div>
+      <h1 class="call-center" id="callCenterText">Call Center +998 (90) 185-66-99</h1>
+    </div>
+
+    <div class="nav-center">
+      <a href="worker.html" class="brand-text" id="brandText">
+        <i class="fa-solid fa-broom"></i>
+        <span>KOMFORT</span>
+      </a>
+    </div>
+
+    <div class="nav-right" id="navRight">
+      <!-- renderNav() заполнит -->
+    </div>
+  </header>
+
+  <!-- Приветствие -->
+  <section class="worker-hero">
+    <div class="worker-hero-inner">
+      <div class="worker-greet">
+        <div class="worker-greet-icon"><i class="fa-solid fa-hand-wave"></i></div>
+        <div>
+          <h1 id="workerWelcomeTitle"><span data-i18n="worker.welcome">Здравствуйте</span>, <span id="workerWelcomeName">—</span>!</h1>
+          <p class="muted" data-i18n="worker.subtitle">Отмечайтесь, общайтесь с директором, выполняйте задания</p>
+        </div>
+      </div>
+
+      <!-- Стат-карточки -->
+      <div class="worker-stats">
+        <div class="worker-stat">
+          <div class="worker-stat-icon worker-stat-blue"><i class="fa-solid fa-clipboard-list"></i></div>
+          <div>
+            <div class="worker-stat-value" id="wstatTasksPending">0</div>
+            <div class="worker-stat-label muted" data-i18n="worker.stats.tasksPending">Активных заданий</div>
+          </div>
+        </div>
+        <div class="worker-stat">
+          <div class="worker-stat-icon worker-stat-green"><i class="fa-solid fa-check"></i></div>
+          <div>
+            <div class="worker-stat-value" id="wstatTasksDone">0</div>
+            <div class="worker-stat-label muted" data-i18n="worker.stats.tasksDone">Выполнено сегодня</div>
+          </div>
+        </div>
+        <div class="worker-stat">
+          <div class="worker-stat-icon worker-stat-yellow"><i class="fa-solid fa-door-open"></i></div>
+          <div>
+            <div class="worker-stat-value" id="wstatAttToday">0</div>
+            <div class="worker-stat-label muted" data-i18n="worker.stats.attToday">Отметок сегодня</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Главные карточки -->
+  <section class="worker-cards">
+    <!-- Турникет -->
+    <div class="worker-card worker-card-turnstile">
+      <div class="worker-card-icon"><i class="fa-solid fa-door-open"></i></div>
+      <h2 data-i18n="worker.card.attendance">Турникет</h2>
+      <p class="muted" data-i18n="worker.card.attendanceSub">Отметьте приход и уход</p>
+      <div class="worker-card-actions">
+        <button class="primary worker-btn-arrive" onclick="wOpenArrive()">
+          <i class="fa-solid fa-right-to-bracket"></i> <span data-i18n="nav.arrive">Пришёл</span>
+        </button>
+        <button class="ghost-btn worker-btn-leave" onclick="wOpenLeave()" id="workerLeaveBtn" style="display:none">
+          <i class="fa-solid fa-right-from-bracket"></i> <span data-i18n="nav.leave">Ушёл</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Чат -->
+    <div class="worker-card worker-card-chat">
+      <div class="worker-card-icon"><i class="fa-solid fa-comments"></i></div>
+      <h2 data-i18n="worker.card.chat">Чат с директором</h2>
+      <p class="muted" data-i18n="worker.card.chatSub">Сообщения и обратная связь</p>
+      <button class="primary" onclick="toggleStaffChat()">
+        <i class="fa-solid fa-comment-dots"></i>
+        <span data-i18n="worker.open">Открыть</span>
+        <span id="workerChatBadge" class="card-badge" style="display:none">0</span>
+      </button>
+    </div>
+
+    <!-- Задания -->
+    <div class="worker-card worker-card-tasks">
+      <div class="worker-card-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+      <h2 data-i18n="worker.card.tasks">Мои задания</h2>
+      <p class="muted" data-i18n="worker.card.tasksSub">Задания от директора</p>
+      <button class="primary" onclick="toggleMyTasks()">
+        <i class="fa-solid fa-list-check"></i>
+        <span data-i18n="worker.open">Открыть</span>
+        <span id="workerTasksBadge" class="card-badge" style="display:none">0</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ Плавающий чат с директором ============ -->
+  <button id="chatBubble" class="chat-bubble" onclick="toggleStaffChat()" style="display:none" aria-label="Chat">
+    <i class="fa-solid fa-comments"></i>
+    <span id="chatBubbleBadge" class="chat-bubble-badge" style="display:none">0</span>
+  </button>
+
+  <!-- Мои задания (плавающая кнопка) -->
+  <button id="myTasksBubble" class="chat-bubble my-tasks-bubble" onclick="toggleMyTasks()" style="display:none" aria-label="My tasks">
+    <i class="fa-solid fa-clipboard-list"></i>
+    <span id="myTasksBadge" class="chat-bubble-badge" style="display:none">0</span>
+  </button>
+
+  <div id="staffChatPanel" class="staff-chat-panel" style="display:none">
+    <div class="staff-chat-head">
+      <div class="staff-chat-head-info">
+        <div class="staff-chat-avatar"><i class="fa-solid fa-user-tie"></i></div>
+        <div>
+          <div class="staff-chat-title" data-i18n="role.director">Директор</div>
+          <div class="staff-chat-sub" id="staffChatSub" data-i18n="common.online">в сети</div>
+        </div>
+      </div>
+      <button class="staff-chat-close" onclick="toggleStaffChat()" aria-label="Close">&times;</button>
+    </div>
+    <div id="staffChatMessages" class="staff-chat-messages"></div>
+    <div class="staff-chat-input-row">
+      <input type="text" id="staffChatInput" data-i18n-ph="staff.chat.placeholder" placeholder="Сообщение директору..." onkeypress="if(event.key==='Enter')staffSendMessage()"/>
+      <button class="staff-chat-send" onclick="staffSendMessage()" aria-label="Send">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Мои задания (плавающее окно) -->
+  <div id="myTasksPanel" class="staff-chat-panel my-tasks-panel" style="display:none">
+    <div class="staff-chat-head">
+      <div class="staff-chat-head-info">
+        <div class="staff-chat-avatar"><i class="fa-solid fa-clipboard-list"></i></div>
+        <div>
+          <div class="staff-chat-title" data-i18n="my.tasks.title">Мои задания</div>
+          <div class="staff-chat-sub" data-i18n="my.tasks.sub">Задания от директора</div>
+        </div>
+      </div>
+      <button class="staff-chat-close" onclick="toggleMyTasks()" aria-label="Close">&times;</button>
+    </div>
+    <div id="myTasksList" class="my-tasks-list"></div>
+  </div>
+
+  <!-- ============ Чек (для просмотра когда пришёл из задания) ============ -->
+  <div id="receiptModal" class="modal" aria-hidden="true">
+    <div class="modal-content receipt-modal">
+      <button class="close" onclick="closeReceipt()" aria-label="Close">&times;</button>
+      <div id="receiptBody"></div>
+      <div class="receipt-actions">
+        <button class="ghost-btn" onclick="printReceipt()" style="width:100%">
+          <i class="fa-solid fa-print"></i>
+          <span data-i18n="receipt.print">Печать</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Турникет ============ -->
+  <div id="turnstileModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-wide">
+      <button class="close" onclick="closeTurnstile()" aria-label="Close">&times;</button>
+      <h2 id="turnstileTitle">Отметка прихода</h2>
+      <p class="muted" id="turnstileSubtitle">Сделайте селфи и подтвердите место</p>
+
+      <div class="ts-steps">
+        <div class="ts-step ts-step-active" data-step="1"><span>1</span> <span data-i18n="ts.step1">Камера</span></div>
+        <div class="ts-step" data-step="2"><span>2</span> <span data-i18n="ts.step2">Геолокация</span></div>
+        <div class="ts-step" data-step="3"><span>3</span> <span data-i18n="ts.step3">Готово</span></div>
+      </div>
+
+      <div class="ts-camera-wrap">
+        <video id="tsVideo" autoplay playsinline muted></video>
+        <img id="tsPreview" alt="Selfie" style="display:none"/>
+        <canvas id="tsCanvas" style="display:none"></canvas>
+        <div id="tsCamError" class="ts-cam-error" style="display:none">
+          <i class="fa-solid fa-camera"></i>
+          <p data-i18n="ts.camErr">Доступ к камере не разрешён.</p>
+        </div>
+      </div>
+
+      <div id="tsGeoStatus" class="ts-geo-status" style="display:none">
+        <div class="ts-geo-icon"><i class="fa-solid fa-location-dot"></i></div>
+        <div class="ts-geo-body">
+          <div class="ts-geo-title" id="tsGeoTitle">...</div>
+          <div class="ts-geo-sub" id="tsGeoSub">...</div>
+        </div>
+      </div>
+
+      <div id="tsError" class="login-error" style="display:none"></div>
+
+      <div class="ts-actions">
+        <button id="tsCaptureBtn" class="primary ts-btn-capture" onclick="tsCapturePhoto()">
+          <i class="fa-solid fa-camera"></i> <span data-i18n="ts.capture">Сделать снимок</span>
+        </button>
+        <button id="tsRetakeBtn" class="ghost-btn" onclick="tsRetakePhoto()" style="display:none">
+          <i class="fa-solid fa-rotate-right"></i> <span data-i18n="ts.retake">Переснять</span>
+        </button>
+        <button id="tsSubmitBtn" class="primary" onclick="tsSubmit()" style="display:none">
+          <i class="fa-solid fa-paper-plane"></i> <span data-i18n="ts.submit">Отправить отчёт</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="i18n.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="auth.js"></script>
+  <script src="worker.js"></script>
+</body>
+</html>

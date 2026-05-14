@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uz">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Вход в систему — Komfort Uborka</title>
+  <meta name="i18n-title" content="login.title"/>
+  <title>Komfort Uborka</title>
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body class="login-body">
 
-  <!-- Декоративный фон -->
   <div class="bg-mesh" aria-hidden="true">
     <div class="mesh-blob mesh-blob-1"></div>
     <div class="mesh-blob mesh-blob-2"></div>
@@ -18,26 +18,29 @@
   </div>
 
   <div class="login-shell">
+    <!-- Переключатель языка вверху -->
+    <div class="login-lang-row" id="loginLangRow"></div>
+
     <div class="login-card">
       <div class="login-brand">
         <div class="brand-mark">
           <i class="fa-solid fa-broom"></i>
         </div>
         <h1>Komfort Uborka</h1>
-        <p class="muted">Вход в систему</p>
+        <p class="muted" data-i18n="login.subtitle">Вход в систему</p>
       </div>
 
       <form id="loginForm" class="login-form" onsubmit="return false;">
         <label class="field">
-          <span class="field-label"><i class="fa-solid fa-user"></i> Логин</span>
-          <input type="text" id="loginInput" autocomplete="username" required placeholder="Введите логин"/>
+          <span class="field-label"><i class="fa-solid fa-user"></i> <span data-i18n="login.login">Логин</span></span>
+          <input type="text" id="loginInput" autocomplete="username" required data-i18n-ph="login.loginPh" placeholder="Введите логин"/>
         </label>
 
         <label class="field">
-          <span class="field-label"><i class="fa-solid fa-lock"></i> Пароль</span>
+          <span class="field-label"><i class="fa-solid fa-lock"></i> <span data-i18n="login.password">Пароль</span></span>
           <div class="pw-wrap">
-            <input type="password" id="passwordInput" autocomplete="current-password" required placeholder="Введите пароль"/>
-            <button type="button" class="pw-toggle" onclick="togglePassword()" aria-label="Показать пароль">
+            <input type="password" id="passwordInput" autocomplete="current-password" required data-i18n-ph="login.passwordPh" placeholder="Введите пароль"/>
+            <button type="button" class="pw-toggle" onclick="togglePassword()" aria-label="Show password">
               <i class="fa-solid fa-eye" id="pwIcon"></i>
             </button>
           </div>
@@ -47,29 +50,30 @@
 
         <button type="submit" class="primary login-submit" onclick="doLogin()">
           <i class="fa-solid fa-right-to-bracket"></i>
-          <span>Войти</span>
+          <span data-i18n="login.submit">Войти</span>
         </button>
 
-        <p class="login-hint muted">
+        <p class="login-hint muted" data-i18n="login.hint">
           У вас нет аккаунта? Обратитесь к директору — регистрация только через него.
         </p>
       </form>
     </div>
 
-    <p class="login-footer muted">© 2026 Komfort Uborka • Самарканд</p>
+    <p class="login-footer muted" data-i18n="login.footer">© 2026 Komfort Uborka • Самарканд</p>
   </div>
 
-  <script src="firebase-config.js"></script>
+  <script src="i18n.js"></script>
   <script src="firebase-sync.js"></script>
   <script src="auth.js"></script>
   <script>
+    // Применяем переводы и рисуем переключатель языка
+    document.getElementById("loginLangRow").innerHTML = renderLangSwitcher();
+    applyI18n();
+
     // Если уже залогинен — сразу перебрасываем
     (function () {
       const s = getSession();
-      if (s) {
-        if (s.role === "director") window.location.href = "director.html";
-        else window.location.href = "index.html";
-      }
+      if (s) redirectByRole(s);
     })();
 
     function togglePassword() {
@@ -86,33 +90,33 @@
       errEl.textContent = "";
 
       if (!loginStr || !pw) {
-        errEl.textContent = "Введите логин и пароль";
+        errEl.textContent = t("login.errEmpty");
         return;
       }
 
-      // Ждём пока Firebase подтянет актуальные данные
       if (window.FB && !window.FB.isReady()) {
-        errEl.textContent = "Подключение к серверу...";
+        errEl.textContent = t("login.connecting");
         await window.FB.waitReady();
         errEl.textContent = "";
       }
 
       const res = await login(loginStr, pw);
       if (!res.ok) {
-        errEl.textContent = res.error;
+        errEl.textContent = t("login.errBad");
         return;
       }
 
-      // Перенаправление по роли
-      if (res.session.role === "director") window.location.href = "director.html";
-      else if (res.session.role === "accountant") window.location.href = "accountant.html";
-      else window.location.href = "index.html";
+      redirectByRole(res.session);
     }
 
-    // Submit по Enter
     document.getElementById("loginForm").addEventListener("submit", doLogin);
     document.getElementById("passwordInput").addEventListener("keypress", e => {
       if (e.key === "Enter") doLogin();
+    });
+
+    // Перерисовка переключателя при смене языка
+    window.addEventListener("lang-changed", () => {
+      document.getElementById("loginLangRow").innerHTML = renderLangSwitcher();
     });
   </script>
 </body>
