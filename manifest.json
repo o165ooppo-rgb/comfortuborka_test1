@@ -1,0 +1,56 @@
+{
+  "name": "Komfort Uborka",
+  "short_name": "Komfort",
+  "description": "Komfort Uborka — клининговая компания. Заказы, задания и связь с командой.",
+  "lang": "uz",
+  "dir": "ltr",
+  "start_url": "./login.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1e40ff",
+  "theme_color": "#1e40ff",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Турникет",
+      "short_name": "Турникет",
+      "description": "Отметить приход / уход",
+      "url": "./worker.html",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Заказы",
+      "short_name": "Заказы",
+      "description": "Управление заказами",
+      "url": "./director.html",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

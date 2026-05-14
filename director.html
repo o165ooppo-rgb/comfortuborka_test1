@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Komfort Uborka — Director Panel</title>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1e40ff"/>
+  <link rel="icon" type="image/png" href="favicon-32.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Komfort"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="director.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
@@ -462,6 +472,7 @@
   <script src="firebase-sync.js"></script>
   <script src="auth.js"></script>
   <script src="director.js"></script>
+  <script src="pwa.js"></script>
   <script>
     // Рисуем переключатель языка в сайдбаре
     document.getElementById("dirLangSwitcher").innerHTML = renderLangSwitcherCompact();
