@@ -251,6 +251,18 @@ async function login(loginStr, password) {
   return { ok: true, session };
 }
 
+/* Проверка пароля без создания новой сессии — для подтверждения опасных действий */
+async function verifyPassword(loginStr, password) {
+  const users = getUsers();
+  const u = users.find(x => x.login === loginStr);
+  if (!u) return false;
+  if (u.passwordHashed && window.hashPassword) {
+    const hashedInput = await window.hashPassword(password);
+    return u.password === hashedInput;
+  }
+  return u.password === password;
+}
+
 function logout() {
   const s = getSession();
   if (s) {
@@ -274,7 +286,8 @@ function getSession() {
 function homePageForRole(role) {
   if (role === "director") return "director.html";
   if (role === "worker") return "worker.html";
-  return "index.html"; // accountant и прочие
+  if (role === "accountant") return "accountant.html";
+  return "index.html";
 }
 
 function redirectByRole(session) {

@@ -4,7 +4,7 @@
    ВАЖНО: Firebase / Nominatim / Google Fonts всегда идут в сеть.
 ========================================================= */
 
-const CACHE_VERSION = "komfort-v3";  // ← БУМПАЙ при выпуске новой версии
+const CACHE_VERSION = "komfort-v4";  // ← БУМПАЙ при выпуске новой версии
 const CACHE_NAME = `komfort-shell-${CACHE_VERSION}`;
 
 // Файлы оболочки — без них приложение не работает
@@ -14,14 +14,18 @@ const SHELL_FILES = [
   "./index.html",
   "./director.html",
   "./worker.html",
+  "./accountant.html",
   "./style.css",
   "./director.css",
+  "./accountant.css",
   "./i18n.js",
   "./auth.js",
   "./firebase-sync.js",
   "./app.js",
   "./director.js",
   "./worker.js",
+  "./accountant.js",
+  "./pwa.js",
   "./manifest.json",
   "./icon-96.png",
   "./icon-192.png",

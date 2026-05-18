@@ -20,8 +20,9 @@ bootstrapApp({ allowedRoles: ["director"] }, function (s) {
 function initDirector() {
   document.getElementById("dirUserName").textContent = dirSession.fullName;
 
-  // Табы
+  // Табы (пропускаем .dir-nav-link — это ссылка на другую страницу)
   document.querySelectorAll(".dir-nav-btn").forEach(btn => {
+    if (!btn.dataset.tab) return;
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
 

@@ -1554,3 +1554,23 @@
     max-height: 320px;
   }
 }
+
+/* Ссылка-кнопка в сайдбаре — ведёт на отдельную страницу (Бухгалтерия) */
+.dir-nav-btn.dir-nav-link {
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, .12);
+  position: relative;
+  cursor: pointer;
+}
+.dir-nav-btn.dir-nav-link:hover {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  background: rgba(255, 214, 10, 0.08);
+}
+.dir-nav-btn.dir-nav-link::after {
+  content: "→";
+  margin-left: auto;
+  opacity: .55;
+  font-size: 16px;
+  font-weight: 700;
+}

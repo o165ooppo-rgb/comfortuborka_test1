@@ -184,6 +184,7 @@ const I18N_DICT = {
   "dir.tab.chat":       { ru: "Чат",                     uz: "Chat",                   en: "Chat" },
   "dir.tab.orders":     { ru: "Заказы",                  uz: "Buyurtmalar",            en: "Orders" },
   "dir.tab.clients":    { ru: "Клиенты",                 uz: "Mijozlar",               en: "Clients" },
+  "dir.tab.accounting": { ru: "Бухгалтерия",             uz: "Buxgalteriya",           en: "Accounting" },
   "dir.tab.settings":   { ru: "Настройки",               uz: "Sozlamalar",             en: "Settings" },
   "dir.tab.logs":       { ru: "Журнал",                  uz: "Jurnal",                 en: "Logs" },
 

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Komfort Uborka — Бухгалтерия</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#0a1230"/>
+  <link rel="icon" type="image/png" href="favicon-32.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Komfort"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="accountant.css"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+</head>
+<body class="accountant-body">
+
+<!-- ============ ЛЕВЫЙ САЙДБАР (закреплённый, тёмный) ============ -->
+<aside class="acc-sidebar">
+  <!-- Бренд -->
+  <a href="accountant.html" class="acc-brand">
+    <div class="acc-brand-icon"><i class="fa-solid fa-chart-line"></i></div>
+    <div class="acc-brand-text">
+      <span class="acc-brand-name">KOMFORT</span>
+      <span class="acc-brand-sub" data-i18n="acc.brandSub">Бухгалтерия</span>
+    </div>
+  </a>
+
+  <!-- Юзер -->
+  <div class="acc-side-user" id="accSideUser">
+    <div class="acc-side-user-avatar"><i class="fa-solid fa-calculator"></i></div>
+    <div class="acc-side-user-info">
+      <div class="acc-side-user-name" id="accSideUserName">—</div>
+      <div class="acc-side-user-role" id="accSideUserRole">—</div>
+    </div>
+  </div>
+
+  <!-- Переключатель языка -->
+  <div class="acc-side-lang" id="accSideLang">
+    <button class="lang-btn" data-lang="uz">🇺🇿 UZB</button>
+    <button class="lang-btn" data-lang="en">🇬🇧 ENG</button>
+    <button class="lang-btn active" data-lang="ru">🇷🇺 RUS</button>
+  </div>
+
+  <!-- Период -->
+  <div>
+    <div class="acc-side-title"><i class="fa-solid fa-calendar"></i> <span data-i18n="period_label">Период</span></div>
+    <div class="segmented">
+      <button class="seg-btn" data-preset="24h" data-i18n="hours_24">24 часа</button>
+      <button class="seg-btn" data-preset="7" data-i18n="days_7">7 дней</button>
+      <button class="seg-btn active" data-preset="30" data-i18n="days_30">30 дней</button>
+      <button class="seg-btn" data-preset="90" data-i18n="days_90">90 дней</button>
+      <button class="seg-btn" data-preset="this_month" data-i18n="this_month">Этот месяц</button>
+    </div>
+    <div class="grid-2 mt-10">
+      <div><label class="field-label" data-i18n="from_label">С</label><input class="field" type="date" id="fromDate"></div>
+      <div><label class="field-label" data-i18n="to_label">По</label><input class="field" type="date" id="toDate"></div>
+    </div>
+  </div>
+
+  <!-- Фильтры -->
+  <div>
+    <div class="acc-side-title"><i class="fa-solid fa-filter"></i> <span data-i18n="filters_title">Фильтры</span></div>
+    <label class="field-label" data-i18n="type_label">Тип</label>
+    <select class="field" id="typeFilter">
+      <option value="all" data-i18n="all_types">Все</option>
+      <option value="income" data-i18n="income_type">Доход</option>
+      <option value="expense" data-i18n="expense_type">Расход</option>
+    </select>
+    <label class="field-label mt-10" data-i18n="category_label">Категория</label>
+    <select class="field" id="categoryFilter"><option value="all" data-i18n="all_categories">Все</option></select>
+    <label class="field-label mt-10" data-i18n="search_label">Поиск</label>
+    <input class="field" id="searchFilter" placeholder="" data-i18n-placeholder="search_placeholder" />
+  </div>
+
+  <!-- Кнопки -->
+  <div class="side-actions">
+    <button class="primary" id="applyBtn"><i class="fa-solid fa-chart-line"></i> <span data-i18n="apply_btn">Применить</span></button>
+    <button class="secondary" id="resetBtn"><i class="fa-solid fa-rotate-right"></i> <span data-i18n="reset_btn">Сброс</span></button>
+    <button class="ghost" id="exportBtn"><i class="fa-solid fa-file-export"></i> <span data-i18n="export_btn">Экспорт CSV</span></button>
+  </div>
+
+  <!-- AI Insights -->
+  <div class="insight-box">
+    <div class="insight-title"><i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="ai_insight">ИИ-Аналитика</span></div>
+    <div class="insight-text" id="aiInsightText">Анализируем данные...</div>
+  </div>
+  <div class="insight-box acc-forecast">
+    <div class="insight-title"><i class="fa-solid fa-arrow-trend-up"></i> <span data-i18n="forecast_title">Прогноз</span></div>
+    <div class="insight-text" id="forecastText">—</div>
+  </div>
+
+  <!-- Низ: назад + выход -->
+  <div class="side-bottom">
+    <a href="director.html" id="accBackBtn" style="display:none"><i class="fa-solid fa-arrow-left"></i> <span>Панель директора</span></a>
+    <a href="index.html" id="accOrdersBtn" style="display:none"><i class="fa-solid fa-cart-shopping"></i> <span>Заказы</span></a>
+    <button id="accLogoutBtn"><i class="fa-solid fa-right-from-bracket"></i> <span>Выйти</span></button>
+  </div>
+</aside>
+
+<!-- ============ ОСНОВНОЙ КОНТЕНТ ============ -->
+<main class="acc-main">
+  <div class="acc-main-head">
+    <div>
+      <h1 data-i18n="app_title">Финансовая панель</h1>
+      <p class="muted" data-i18n="app_subtitle">Доходы • Расходы • Прибыль</p>
+    </div>
+  </div>
+
+  <!-- KPI плитки -->
+  <section class="kpi-grid">
+    <div class="kpi kpi-income glass" id="incomeCard">
+      <span class="kpi-open-hint"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+      <div class="kpi-label"><i class="fa-solid fa-arrow-trend-up"></i> <span data-i18n="income_kpi">Доход</span></div>
+      <div class="kpi-value" id="kpiIncome">0</div>
+      <div class="kpi-sub" data-i18n="click_to_view">Нажмите чтобы увидеть детали</div>
+    </div>
+    <div class="kpi kpi-expense glass" id="expenseCard">
+      <span class="kpi-open-hint"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+      <div class="kpi-label"><i class="fa-solid fa-arrow-trend-down"></i> <span data-i18n="expense_kpi">Расход</span></div>
+      <div class="kpi-value" id="kpiExpense">0</div>
+      <div class="kpi-sub" data-i18n="click_to_view">Нажмите чтобы увидеть детали</div>
+    </div>
+    <div class="kpi kpi-profit glass">
+      <div class="kpi-label"><i class="fa-solid fa-coins"></i> <span data-i18n="profit_kpi">Прибыль</span></div>
+      <div class="kpi-value" id="kpiProfit">0</div>
+      <div class="kpi-sub" id="kpiProfitSub" data-i18n="margin_label">Маржа: —</div>
+    </div>
+    <div class="kpi kpi-cash glass">
+      <div class="kpi-label"><i class="fa-solid fa-rotate"></i> <span data-i18n="operations_kpi">Операций</span></div>
+      <div class="kpi-value" id="kpiCount">0</div>
+      <div class="kpi-sub" id="kpiAvg" data-i18n="avg_check_label">Средний чек: —</div>
+    </div>
+    <div class="kpi glass" id="topIncomeCard">
+      <span class="kpi-open-hint"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+      <div class="kpi-label"><i class="fa-solid fa-trophy"></i> <span data-i18n="top_income_label">Главный доход</span></div>
+      <div class="kpi-value" id="kpiTopIncome">—</div>
+      <div class="kpi-sub" data-i18n="click_for_breakdown">Нажмите для разбивки</div>
+    </div>
+    <div class="kpi glass" id="topExpenseCard">
+      <span class="kpi-open-hint"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+      <div class="kpi-label"><i class="fa-solid fa-triangle-exclamation"></i> <span data-i18n="top_expense_label">Главный расход</span></div>
+      <div class="kpi-value" id="kpiTopExpense">—</div>
+      <div class="kpi-sub" data-i18n="click_for_breakdown">Нажмите для разбивки</div>
+    </div>
+  </section>
+
+  <!-- Графики -->
+  <section class="chart-grid">
+    <div class="card glass">
+      <div class="card-head">
+        <div>
+          <h3><i class="fa-solid fa-chart-area" style="color:var(--blue)"></i> <span data-i18n="dynamics_title">Динамика периодов</span></h3>
+          <p class="muted" data-i18n="dynamics_subtitle">Текущий vs прошлый период</p>
+        </div>
+        <div class="mini-select">
+          <select class="field" id="bucket">
+            <option value="day" data-i18n="day_option">День</option>
+            <option value="week" data-i18n="week_option">Неделя</option>
+            <option value="month" data-i18n="month_option">Месяц</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body"><canvas id="chartTrend" height="300"></canvas></div>
+    </div>
+    <div class="card glass">
+      <div class="card-head">
+        <div>
+          <h3><i class="fa-solid fa-chart-pie" style="color:#ef4444"></i> <span data-i18n="expense_structure_title">Структура расходов</span></h3>
+          <p class="muted" data-i18n="expense_structure_subtitle">Топ категории</p>
+        </div>
+      </div>
+      <div class="card-body"><canvas id="chartDonut" height="300"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card glass">
+    <div class="card-head">
+      <div>
+        <h3><i class="fa-solid fa-chart-column" style="color:var(--yellow-2)"></i> <span data-i18n="categories_title">Категории: Доход vs Расход</span></h3>
+      </div>
+    </div>
+    <div class="card-body"><canvas id="chartBars" height="250"></canvas></div>
+  </section>
+
+  <section class="card glass">
+    <div class="card-head">
+      <div>
+        <h3><i class="fa-solid fa-list" style="color:var(--blue)"></i> <span data-i18n="transactions_title">Все операции</span></h3>
+        <p class="muted" data-i18n="transactions_subtitle">Доходы из заказов помечены жёлтой полосой</p>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="table-wrap">
+        <table class="tx-table">
+          <thead>
+            <tr><th data-i18n="date_th">Дата</th><th data-i18n="type_th">Тип</th><th data-i18n="category_th">Категория</th><th data-i18n="amount_th">Сумма</th><th data-i18n="method_th">Метод</th><th data-i18n="description_th">Описание</th><th></th></tr>
+          </thead>
+          <tbody id="txTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card glass">
+    <div class="card-head">
+      <div>
+        <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--muted)"></i> <span data-i18n="activity_title">История действий</span></h3>
+        <p class="muted" data-i18n="activity_subtitle">Все операции добавления, удаления и изменения</p>
+      </div>
+      <button class="ghost" id="clearLogsBtn" style="width:auto; padding:8px 16px; border:1.5px solid var(--line); color:var(--muted)"><i class="fa-solid fa-trash"></i> <span data-i18n="clear_logs_btn">Очистить</span></button>
+    </div>
+    <div class="card-body">
+      <div class="log-container" id="logContainer">
+        <div class="log-empty">📭 Нет действий для отображения</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Модалка добавления -->
+<div id="addModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <button class="close-modal" id="closeModalBtn">&times;</button>
+    <div class="modal-header">
+      <div class="modal-icon" id="modalIcon"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+      <h2 id="modalTitle" data-i18n="modal_income_title">Добавить доход</h2>
+      <p class="muted" id="modalSubtitle" data-i18n="modal_subtitle">Заполните форму</p>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="field-label" data-i18n="category_label">Категория</label>
+        <select class="field" id="modalCategory"></select>
+      </div>
+      <div class="form-group">
+        <label class="field-label" data-i18n="amount_label">Сумма</label>
+        <input class="field" type="number" id="modalAmount" placeholder="0" data-i18n-placeholder="amount_placeholder" />
+      </div>
+      <div class="form-group">
+        <label class="field-label" data-i18n="date_label">Дата</label>
+        <input class="field" type="date" id="modalDate" />
+      </div>
+      <div class="form-group">
+        <label class="field-label" data-i18n="method_label">Метод оплаты</label>
+        <select class="field" id="modalMethod">
+          <option value="cash" data-i18n="method_cash">Наличные</option>
+          <option value="card" data-i18n="method_card">Карта</option>
+          <option value="bank" data-i18n="method_bank">Банк</option>
+          <option value="tabby" data-i18n="method_tabby">Tabby</option>
+          <option value="other" data-i18n="method_other">Другое</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="field-label" data-i18n="description_label">Описание / Клиент</label>
+        <input class="field" id="modalNote" placeholder="" data-i18n-placeholder="description_placeholder" />
+      </div>
+      <div class="form-group">
+        <label class="field-label" data-i18n="tag_label">Тэг (необязательно)</label>
+        <input class="field" id="modalTag" placeholder="" data-i18n-placeholder="tag_placeholder" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="secondary" id="cancelModalBtn" data-i18n="cancel_btn">Отмена</button>
+      <button class="primary" id="saveModalBtn" data-i18n="save_btn">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка кода -->
+<div id="passwordModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 420px;">
+    <button class="close-modal" id="closePasswordModalBtn">&times;</button>
+    <div class="modal-header">
+      <div class="modal-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 12px 24px rgba(239,68,68,.35);"><i class="fa-solid fa-lock"></i></div>
+      <h2 data-i18n="password_title">Подтверждение удаления</h2>
+      <p class="muted" data-i18n="password_subtitle">Введите код подтверждения</p>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="field-label" data-i18n="password_label">Код</label>
+        <input class="field" type="password" id="passwordInput" placeholder="••••••" maxlength="6" inputmode="numeric" autocomplete="off" />
+      </div>
+      <div id="passwordError" class="muted" style="color:#ef4444;font-size:13px;display:none;font-weight:600;text-align:center"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="secondary" id="cancelPasswordBtn" data-i18n="cancel_btn">Отмена</button>
+      <button class="primary" id="confirmPasswordBtn" data-i18n="confirm_btn"><i class="fa-solid fa-trash"></i> Удалить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: Доход — операции -->
+<div id="incomeBreakdownModal" class="modal" style="display:none">
+  <div class="modal-content breakdown-modal">
+    <button class="close-modal" data-bd-close>&times;</button>
+    <div class="breakdown-head">
+      <div class="breakdown-icon income"><i class="fa-solid fa-arrow-trend-up"></i></div>
+      <div class="breakdown-titles">
+        <h2 data-i18n="bd_income_title">Доходы</h2>
+        <div class="breakdown-total">
+          <span data-i18n="bd_total">Итого:</span>
+          <strong class="income-val" id="bdIncomeTotal">0</strong>
+        </div>
+      </div>
+      <button class="breakdown-add-btn" id="bdIncomeAddBtn" title="Добавить доход">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    <div class="breakdown-list" id="bdIncomeList"></div>
+  </div>
+</div>
+
+<!-- Модалка: Расход — операции -->
+<div id="expenseBreakdownModal" class="modal" style="display:none">
+  <div class="modal-content breakdown-modal">
+    <button class="close-modal" data-bd-close>&times;</button>
+    <div class="breakdown-head">
+      <div class="breakdown-icon expense"><i class="fa-solid fa-arrow-trend-down"></i></div>
+      <div class="breakdown-titles">
+        <h2 data-i18n="bd_expense_title">Расходы</h2>
+        <div class="breakdown-total">
+          <span data-i18n="bd_total">Итого:</span>
+          <strong class="expense-val" id="bdExpenseTotal">0</strong>
+        </div>
+      </div>
+      <button class="breakdown-add-btn" id="bdExpenseAddBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 6px 14px rgba(239,68,68,.3)" title="Добавить расход">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    <div class="breakdown-list" id="bdExpenseList"></div>
+  </div>
+</div>
+
+<!-- Модалка: Топ-доходов -->
+<div id="topIncomeModal" class="modal" style="display:none">
+  <div class="modal-content top-modal">
+    <button class="close-modal" data-bd-close>&times;</button>
+    <div class="modal-header">
+      <div class="modal-icon" style="background:linear-gradient(135deg,#ffd60a,#ffb800);color:var(--ink);box-shadow:0 12px 24px rgba(255,184,0,.35)"><i class="fa-solid fa-trophy"></i></div>
+      <h2 data-i18n="top_income_modal_title">Откуда главный доход</h2>
+      <p class="muted" data-i18n="top_modal_sub">Разбивка по категориям</p>
+    </div>
+    <div class="top-chart-wrap">
+      <canvas id="topIncomeChart"></canvas>
+      <div class="top-chart-center">
+        <div class="top-chart-center-label" data-i18n="bd_total">Итого</div>
+        <div class="top-chart-center-value" id="topIncomeCenter" style="color:#00a86c">0</div>
+      </div>
+    </div>
+    <div class="top-list" id="topIncomeList"></div>
+  </div>
+</div>
+
+<!-- Модалка: Топ-расходов -->
+<div id="topExpenseModal" class="modal" style="display:none">
+  <div class="modal-content top-modal">
+    <button class="close-modal" data-bd-close>&times;</button>
+    <div class="modal-header">
+      <div class="modal-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 12px 24px rgba(239,68,68,.35)"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <h2 data-i18n="top_expense_modal_title">На что главные расходы</h2>
+      <p class="muted" data-i18n="top_modal_sub">Разбивка по категориям</p>
+    </div>
+    <div class="top-chart-wrap">
+      <canvas id="topExpenseChart"></canvas>
+      <div class="top-chart-center">
+        <div class="top-chart-center-label" data-i18n="bd_total">Итого</div>
+        <div class="top-chart-center-value" id="topExpenseCenter" style="color:#dc2626">0</div>
+      </div>
+    </div>
+    <div class="top-list" id="topExpenseList"></div>
+  </div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="firebase-sync.js"></script>
+<script src="auth.js"></script>
+<script src="accountant.js"></script>
+<script src="pwa.js"></script>
+</body>
+</html>

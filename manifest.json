@@ -51,6 +51,13 @@
       "description": "Управление заказами",
       "url": "./director.html",
       "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Бухгалтерия",
+      "short_name": "Финансы",
+      "description": "Приход, расход, прибыль",
+      "url": "./accountant.html",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
     }
   ]
 }
