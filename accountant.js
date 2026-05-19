@@ -521,13 +521,40 @@ function loadTransactions() {
   return mergeWithOrders([]);
 }
 
+/* =========================================================
+   УДАЛЁННЫЕ ИЗ БУХГАЛТЕРИИ ЗАКАЗЫ
+   Когда юзер удаляет авто-импортированную транзакцию, её orderId
+   попадает сюда, чтобы при следующем merge она НЕ вернулась.
+========================================================= */
+const DELETED_ORDER_IDS_KEY = "kus_finance_deleted_order_ids";
+
+function getDeletedOrderIds() {
+  try { return JSON.parse(localStorage.getItem(DELETED_ORDER_IDS_KEY) || "[]") || []; }
+  catch { return []; }
+}
+function addDeletedOrderId(orderId) {
+  if (!orderId) return;
+  const list = getDeletedOrderIds();
+  if (!list.includes(orderId)) {
+    list.push(orderId);
+    localStorage.setItem(DELETED_ORDER_IDS_KEY, JSON.stringify(list));
+  }
+}
+function clearDeletedOrderIds() {
+  localStorage.removeItem(DELETED_ORDER_IDS_KEY);
+}
+
 /* Авто-импорт оплаченных заказов и авансов из системы как доходных транзакций */
 function mergeWithOrders(manualTx) {
   if (typeof getAllOrders !== "function") return manualTx;
+  const deletedIds = getDeletedOrderIds();
   const orderTx = [];
   try {
     const orders = getAllOrders() || [];
     orders.forEach(o => {
+      // Пропускаем заказы, которые юзер вручную удалил из бухгалтерии
+      if (deletedIds.includes(o.id)) return;
+
       const price = o.price || o.total || 0;
       const advance = o.advance || 0;
       const orderDate = ((o.createdAt || o.date || todayISO()) + "").slice(0, 10);
@@ -804,10 +831,7 @@ function renderKPIs(list){
 }
 
 function openPasswordModal(id, data) {
-  if (data && data.source === "order") {
-    alert("Этот доход импортирован из заказа. Чтобы убрать — измените статус заказа в панели директора.");
-    return;
-  }
+  // Любые транзакции можно удалить, в том числе импорты из заказов
   pendingDeleteId = id;
   pendingDeleteData = data;
   const modal = document.getElementById("passwordModal");
@@ -835,6 +859,19 @@ function confirmDeleteWithPassword() {
   if (enteredPassword === DELETE_CODE) {
     if (pendingDeleteId !== null && pendingDeleteData) {
       finLog(translate("log_deleted"), `${pendingDeleteData.type === 'income' ? '💰' : '📉'} ${pendingDeleteData.note} | ${translate("log_amount")}: ${money(pendingDeleteData.amount)} | ${translate("log_category")}: ${pendingDeleteData.category}`, "danger");
+
+      // Если это авто-импорт из заказа — запоминаем orderId,
+      // чтобы при перезагрузке merge не вернул его обратно
+      if (pendingDeleteData.source === "order") {
+        const tx = TX.find(x => x.id === pendingDeleteId);
+        if (tx && tx.orderId) {
+          addDeletedOrderId(tx.orderId);
+        } else if (typeof pendingDeleteId === "string") {
+          const cleanId = pendingDeleteId.replace(/^order-(paid|adv)-/, "");
+          if (cleanId) addDeletedOrderId(cleanId);
+        }
+      }
+
       TX = TX.filter(x => x.id != pendingDeleteId);
       saveTransactions(TX);
       renderAll();
@@ -849,6 +886,38 @@ function confirmDeleteWithPassword() {
   }
 }
 
+/* ОБНУЛИТЬ всё — одной кнопкой стереть всю бухгалтерию */
+function clearAllAccounting() {
+  const code = prompt("Это удалит ВСЕ транзакции и обнулит дашборд.\nВведите код подтверждения:");
+  if (code === null) return;
+  if (code !== DELETE_CODE) {
+    alert("Неверный код. Удаление отменено.");
+    return;
+  }
+  if (!confirm("Точно удалить ВСЕ транзакции?\nЭто действие необратимо.")) return;
+
+  // 1) Чистим все ручные транзакции
+  localStorage.removeItem(STORE_KEY);
+
+  // 2) Запоминаем ВСЕ текущие заказы как "удалённые из бухгалтерии"
+  //    чтобы они не вернулись при следующей загрузке
+  try {
+    if (typeof getAllOrders === "function") {
+      const orders = getAllOrders() || [];
+      const ids = orders.map(o => o.id).filter(Boolean);
+      localStorage.setItem(DELETED_ORDER_IDS_KEY, JSON.stringify(ids));
+    }
+  } catch (e) { console.warn(e); }
+
+  // 3) Лог
+  finLog("Полная очистка", "Все транзакции бухгалтерии удалены (обнуление)", "danger");
+
+  // 4) Перезагружаем дашборд
+  TX = loadTransactions();
+  renderAll();
+  alert("Готово. Все транзакции удалены — дашборд обнулён.");
+}
+
 function renderTable(list){
   const tbody = document.getElementById("txTable");
   if(!tbody) return;
@@ -860,9 +929,7 @@ function renderTable(list){
   
   tbody.innerHTML = list.map(item => {
     const isOrder = item.source === "order";
-    const deleteCell = isOrder
-      ? `<span title="Из заказа — нельзя удалить вручную" style="color:var(--muted);font-size:14px"><i class="fa-solid fa-lock"></i></span>`
-      : `<button class="icon-btn delete-btn" data-id="${item.id}" data-type="${item.type}" data-note="${escapeHtml(item.note)}" data-amount="${item.amount}" data-category="${escapeHtml(item.category)}" data-source="${item.source || ''}"><i class="fa-solid fa-xmark"></i></button>`;
+    const deleteCell = `<button class="icon-btn delete-btn" data-id="${item.id}" data-type="${item.type}" data-note="${escapeHtml(item.note)}" data-amount="${item.amount}" data-category="${escapeHtml(item.category)}" data-source="${item.source || ''}"><i class="fa-solid fa-xmark"></i></button>`;
     return `
     <tr class="${isOrder ? 'is-auto-order' : ''}">
       <td>${item.date}</td>
@@ -1124,6 +1191,10 @@ function attachBreakdownHandlers() {
   if (topIncomeCard) topIncomeCard.addEventListener("click", () => showTopDetail("income"));
   if (topExpenseCard) topExpenseCard.addEventListener("click", () => showTopDetail("expense"));
 
+  // Кнопка "Обнулить" в шапке — удаляет ВСЕ транзакции
+  const clearAllBtn = document.getElementById("clearAllBtn");
+  if (clearAllBtn) clearAllBtn.addEventListener("click", clearAllAccounting);
+
   // Плюсики добавления — открывают модалку, оставляя detail-секцию открытой
   const addIncome = document.getElementById("detailIncomeAddBtn");
   const addExpense = document.getElementById("detailExpenseAddBtn");
@@ -1233,9 +1304,7 @@ function renderBreakdownItem(item, type) {
   const amountCls = type;
   const sign = type === "income" ? "+" : "−";
 
-  const deleteBtn = isOrder
-    ? `<span class="breakdown-item-delete" style="border:none;background:transparent;cursor:default" title="Из заказа"><i class="fa-solid fa-lock"></i></span>`
-    : `<button class="breakdown-item-delete" data-id="${escapeHtml(item.id)}" title="Удалить"><i class="fa-solid fa-xmark"></i></button>`;
+  const deleteBtn = `<button class="breakdown-item-delete" data-id="${escapeHtml(item.id)}" title="Удалить"><i class="fa-solid fa-xmark"></i></button>`;
 
   return `
     <div class="breakdown-item ${isOrder ? 'is-auto-order' : ''}">

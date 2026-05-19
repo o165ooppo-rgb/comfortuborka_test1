@@ -1226,3 +1226,40 @@ select.field option { background: #0a1230; color: #fff; }
   .acc-detail-split { padding: 20px 16px; }
   .top-chart-wrap { width: 220px; height: 220px; }
 }
+
+/* =========================================================
+   Кнопка "Обнулить всё" в шапке бухгалтерии
+========================================================= */
+.acc-main-head {
+  flex-wrap: wrap;
+}
+.clear-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border: 1.5px solid rgba(239, 68, 68, .3);
+  border-radius: 12px;
+  background: #fff;
+  color: #ef4444;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all .25s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.clear-all-btn:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: #dc2626;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, .35);
+}
+.clear-all-btn i { font-size: 14px; }
+
+@media (max-width: 600px) {
+  .clear-all-btn span { display: none; }
+  .clear-all-btn { padding: 10px 12px; }
+}
