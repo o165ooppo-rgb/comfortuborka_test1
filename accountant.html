@@ -26,9 +26,8 @@
 </head>
 <body class="accountant-body">
 
-<!-- ============ ЛЕВЫЙ САЙДБАР (закреплённый, тёмный) ============ -->
+<!-- ============ ЛЕВЫЙ САЙДБАР ============ -->
 <aside class="acc-sidebar">
-  <!-- Бренд -->
   <a href="accountant.html" class="acc-brand">
     <div class="acc-brand-icon"><i class="fa-solid fa-chart-line"></i></div>
     <div class="acc-brand-text">
@@ -37,7 +36,6 @@
     </div>
   </a>
 
-  <!-- Юзер -->
   <div class="acc-side-user" id="accSideUser">
     <div class="acc-side-user-avatar"><i class="fa-solid fa-calculator"></i></div>
     <div class="acc-side-user-info">
@@ -46,14 +44,12 @@
     </div>
   </div>
 
-  <!-- Переключатель языка -->
   <div class="acc-side-lang" id="accSideLang">
     <button class="lang-btn" data-lang="uz">🇺🇿 UZB</button>
     <button class="lang-btn" data-lang="en">🇬🇧 ENG</button>
     <button class="lang-btn active" data-lang="ru">🇷🇺 RUS</button>
   </div>
 
-  <!-- Период -->
   <div>
     <div class="acc-side-title"><i class="fa-solid fa-calendar"></i> <span data-i18n="period_label">Период</span></div>
     <div class="segmented">
@@ -69,7 +65,6 @@
     </div>
   </div>
 
-  <!-- Фильтры -->
   <div>
     <div class="acc-side-title"><i class="fa-solid fa-filter"></i> <span data-i18n="filters_title">Фильтры</span></div>
     <label class="field-label" data-i18n="type_label">Тип</label>
@@ -84,14 +79,12 @@
     <input class="field" id="searchFilter" placeholder="" data-i18n-placeholder="search_placeholder" />
   </div>
 
-  <!-- Кнопки -->
   <div class="side-actions">
     <button class="primary" id="applyBtn"><i class="fa-solid fa-chart-line"></i> <span data-i18n="apply_btn">Применить</span></button>
     <button class="secondary" id="resetBtn"><i class="fa-solid fa-rotate-right"></i> <span data-i18n="reset_btn">Сброс</span></button>
     <button class="ghost" id="exportBtn"><i class="fa-solid fa-file-export"></i> <span data-i18n="export_btn">Экспорт CSV</span></button>
   </div>
 
-  <!-- AI Insights -->
   <div class="insight-box">
     <div class="insight-title"><i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="ai_insight">ИИ-Аналитика</span></div>
     <div class="insight-text" id="aiInsightText">Анализируем данные...</div>
@@ -101,7 +94,6 @@
     <div class="insight-text" id="forecastText">—</div>
   </div>
 
-  <!-- Низ: назад + выход -->
   <div class="side-bottom">
     <a href="director.html" id="accBackBtn" style="display:none"><i class="fa-solid fa-arrow-left"></i> <span>Панель директора</span></a>
     <a href="index.html" id="accOrdersBtn" style="display:none"><i class="fa-solid fa-cart-shopping"></i> <span>Заказы</span></a>
@@ -110,7 +102,7 @@
 </aside>
 
 <!-- ============ ОСНОВНОЙ КОНТЕНТ ============ -->
-<main class="acc-main">
+<main class="acc-main" id="accMainHome">
   <div class="acc-main-head">
     <div>
       <h1 data-i18n="app_title">Финансовая панель</h1>
@@ -156,13 +148,13 @@
     </div>
   </section>
 
-  <!-- Графики -->
+  <!-- Графики (компактные) -->
   <section class="chart-grid">
     <div class="card glass">
       <div class="card-head">
         <div>
-          <h3><i class="fa-solid fa-chart-area" style="color:var(--blue)"></i> <span data-i18n="dynamics_title">Динамика периодов</span></h3>
-          <p class="muted" data-i18n="dynamics_subtitle">Текущий vs прошлый период</p>
+          <h3><i class="fa-solid fa-chart-area" style="color:var(--blue)"></i> <span data-i18n="dynamics_title">Динамика</span></h3>
+          <p class="muted" data-i18n="dynamics_subtitle">Текущий vs прошлый</p>
         </div>
         <div class="mini-select">
           <select class="field" id="bucket">
@@ -172,7 +164,7 @@
           </select>
         </div>
       </div>
-      <div class="card-body"><canvas id="chartTrend" height="300"></canvas></div>
+      <div class="card-body chart-compact"><canvas id="chartTrend"></canvas></div>
     </div>
     <div class="card glass">
       <div class="card-head">
@@ -181,38 +173,11 @@
           <p class="muted" data-i18n="expense_structure_subtitle">Топ категории</p>
         </div>
       </div>
-      <div class="card-body"><canvas id="chartDonut" height="300"></canvas></div>
+      <div class="card-body chart-compact-donut"><canvas id="chartDonut"></canvas></div>
     </div>
   </section>
 
-  <section class="card glass">
-    <div class="card-head">
-      <div>
-        <h3><i class="fa-solid fa-chart-column" style="color:var(--yellow-2)"></i> <span data-i18n="categories_title">Категории: Доход vs Расход</span></h3>
-      </div>
-    </div>
-    <div class="card-body"><canvas id="chartBars" height="250"></canvas></div>
-  </section>
-
-  <section class="card glass">
-    <div class="card-head">
-      <div>
-        <h3><i class="fa-solid fa-list" style="color:var(--blue)"></i> <span data-i18n="transactions_title">Все операции</span></h3>
-        <p class="muted" data-i18n="transactions_subtitle">Доходы из заказов помечены жёлтой полосой</p>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="table-wrap">
-        <table class="tx-table">
-          <thead>
-            <tr><th data-i18n="date_th">Дата</th><th data-i18n="type_th">Тип</th><th data-i18n="category_th">Категория</th><th data-i18n="amount_th">Сумма</th><th data-i18n="method_th">Метод</th><th data-i18n="description_th">Описание</th><th></th></tr>
-          </thead>
-          <tbody id="txTable"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
+  <!-- История действий -->
   <section class="card glass">
     <div class="card-head">
       <div>
@@ -229,7 +194,109 @@
   </section>
 </main>
 
-<!-- Модалка добавления -->
+<!-- ============ ПОЛНОЭКРАННЫЕ ПАНЕЛИ (вместо модалок) ============ -->
+
+<!-- Доход — детали -->
+<section class="acc-detail" id="detailIncome" style="display:none">
+  <header class="acc-detail-head">
+    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <div class="acc-detail-icon detail-icon-income"><i class="fa-solid fa-arrow-trend-up"></i></div>
+    <div class="acc-detail-titles">
+      <h1>Доходы</h1>
+      <div class="acc-detail-total">
+        <span class="muted">За период:</span>
+        <strong class="income-val" id="detailIncomeTotal">0</strong>
+      </div>
+    </div>
+    <button class="acc-detail-add" id="detailIncomeAddBtn" title="Добавить доход">
+      <i class="fa-solid fa-plus"></i>
+      <span>Добавить</span>
+    </button>
+  </header>
+  <div class="acc-detail-body">
+    <div class="breakdown-list" id="detailIncomeList"></div>
+  </div>
+</section>
+
+<!-- Расход — детали -->
+<section class="acc-detail" id="detailExpense" style="display:none">
+  <header class="acc-detail-head">
+    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <div class="acc-detail-icon detail-icon-expense"><i class="fa-solid fa-arrow-trend-down"></i></div>
+    <div class="acc-detail-titles">
+      <h1>Расходы</h1>
+      <div class="acc-detail-total">
+        <span class="muted">За период:</span>
+        <strong class="expense-val" id="detailExpenseTotal">0</strong>
+      </div>
+    </div>
+    <button class="acc-detail-add detail-add-red" id="detailExpenseAddBtn" title="Добавить расход">
+      <i class="fa-solid fa-plus"></i>
+      <span>Добавить</span>
+    </button>
+  </header>
+  <div class="acc-detail-body">
+    <div class="breakdown-list" id="detailExpenseList"></div>
+  </div>
+</section>
+
+<!-- Главный доход — детали -->
+<section class="acc-detail" id="detailTopIncome" style="display:none">
+  <header class="acc-detail-head">
+    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <div class="acc-detail-icon detail-icon-trophy"><i class="fa-solid fa-trophy"></i></div>
+    <div class="acc-detail-titles">
+      <h1>Главный доход</h1>
+      <p class="muted">Разбивка по категориям</p>
+    </div>
+  </header>
+  <div class="acc-detail-body">
+    <div class="acc-detail-split">
+      <div class="acc-detail-chart-side">
+        <div class="top-chart-wrap">
+          <canvas id="topIncomeChart"></canvas>
+          <div class="top-chart-center">
+            <div class="top-chart-center-label">Итого</div>
+            <div class="top-chart-center-value" id="topIncomeCenter" style="color:#00a86c">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="acc-detail-list-side">
+        <div class="top-list" id="topIncomeList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Главный расход — детали -->
+<section class="acc-detail" id="detailTopExpense" style="display:none">
+  <header class="acc-detail-head">
+    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <div class="acc-detail-icon detail-icon-warn"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="acc-detail-titles">
+      <h1>Главный расход</h1>
+      <p class="muted">Разбивка по категориям</p>
+    </div>
+  </header>
+  <div class="acc-detail-body">
+    <div class="acc-detail-split">
+      <div class="acc-detail-chart-side">
+        <div class="top-chart-wrap">
+          <canvas id="topExpenseChart"></canvas>
+          <div class="top-chart-center">
+            <div class="top-chart-center-label">Итого</div>
+            <div class="top-chart-center-value" id="topExpenseCenter" style="color:#dc2626">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="acc-detail-list-side">
+        <div class="top-list" id="topExpenseList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ МОДАЛКА ДОБАВЛЕНИЯ ============ -->
 <div id="addModal" class="modal" style="display: none;">
   <div class="modal-content">
     <button class="close-modal" id="closeModalBtn">&times;</button>
@@ -241,19 +308,19 @@
     <div class="modal-body">
       <div class="form-group">
         <label class="field-label" data-i18n="category_label">Категория</label>
-        <select class="field" id="modalCategory"></select>
+        <select class="field field-clean" id="modalCategory"></select>
       </div>
       <div class="form-group">
         <label class="field-label" data-i18n="amount_label">Сумма</label>
-        <input class="field" type="number" id="modalAmount" placeholder="0" data-i18n-placeholder="amount_placeholder" />
+        <input class="field field-clean" type="number" id="modalAmount" placeholder="0" data-i18n-placeholder="amount_placeholder" />
       </div>
       <div class="form-group">
         <label class="field-label" data-i18n="date_label">Дата</label>
-        <input class="field" type="date" id="modalDate" />
+        <input class="field field-clean" type="date" id="modalDate" />
       </div>
       <div class="form-group">
         <label class="field-label" data-i18n="method_label">Метод оплаты</label>
-        <select class="field" id="modalMethod">
+        <select class="field field-clean" id="modalMethod">
           <option value="cash" data-i18n="method_cash">Наличные</option>
           <option value="card" data-i18n="method_card">Карта</option>
           <option value="bank" data-i18n="method_bank">Банк</option>
@@ -263,11 +330,11 @@
       </div>
       <div class="form-group">
         <label class="field-label" data-i18n="description_label">Описание / Клиент</label>
-        <input class="field" id="modalNote" placeholder="" data-i18n-placeholder="description_placeholder" />
+        <input class="field field-clean" id="modalNote" placeholder="" data-i18n-placeholder="description_placeholder" />
       </div>
       <div class="form-group">
         <label class="field-label" data-i18n="tag_label">Тэг (необязательно)</label>
-        <input class="field" id="modalTag" placeholder="" data-i18n-placeholder="tag_placeholder" />
+        <input class="field field-clean" id="modalTag" placeholder="" data-i18n-placeholder="tag_placeholder" />
       </div>
     </div>
     <div class="modal-footer">
@@ -277,7 +344,7 @@
   </div>
 </div>
 
-<!-- Модалка кода -->
+<!-- ============ МОДАЛКА КОДА (удаление) ============ -->
 <div id="passwordModal" class="modal" style="display: none;">
   <div class="modal-content" style="max-width: 420px;">
     <button class="close-modal" id="closePasswordModalBtn">&times;</button>
@@ -289,7 +356,7 @@
     <div class="modal-body">
       <div class="form-group">
         <label class="field-label" data-i18n="password_label">Код</label>
-        <input class="field" type="password" id="passwordInput" placeholder="••••••" maxlength="6" inputmode="numeric" autocomplete="off" />
+        <input class="field field-clean" type="password" id="passwordInput" placeholder="••••••" maxlength="6" inputmode="numeric" autocomplete="off" />
       </div>
       <div id="passwordError" class="muted" style="color:#ef4444;font-size:13px;display:none;font-weight:600;text-align:center"></div>
     </div>
@@ -297,88 +364,6 @@
       <button class="secondary" id="cancelPasswordBtn" data-i18n="cancel_btn">Отмена</button>
       <button class="primary" id="confirmPasswordBtn" data-i18n="confirm_btn"><i class="fa-solid fa-trash"></i> Удалить</button>
     </div>
-  </div>
-</div>
-
-<!-- Модалка: Доход — операции -->
-<div id="incomeBreakdownModal" class="modal" style="display:none">
-  <div class="modal-content breakdown-modal">
-    <button class="close-modal" data-bd-close>&times;</button>
-    <div class="breakdown-head">
-      <div class="breakdown-icon income"><i class="fa-solid fa-arrow-trend-up"></i></div>
-      <div class="breakdown-titles">
-        <h2 data-i18n="bd_income_title">Доходы</h2>
-        <div class="breakdown-total">
-          <span data-i18n="bd_total">Итого:</span>
-          <strong class="income-val" id="bdIncomeTotal">0</strong>
-        </div>
-      </div>
-      <button class="breakdown-add-btn" id="bdIncomeAddBtn" title="Добавить доход">
-        <i class="fa-solid fa-plus"></i>
-      </button>
-    </div>
-    <div class="breakdown-list" id="bdIncomeList"></div>
-  </div>
-</div>
-
-<!-- Модалка: Расход — операции -->
-<div id="expenseBreakdownModal" class="modal" style="display:none">
-  <div class="modal-content breakdown-modal">
-    <button class="close-modal" data-bd-close>&times;</button>
-    <div class="breakdown-head">
-      <div class="breakdown-icon expense"><i class="fa-solid fa-arrow-trend-down"></i></div>
-      <div class="breakdown-titles">
-        <h2 data-i18n="bd_expense_title">Расходы</h2>
-        <div class="breakdown-total">
-          <span data-i18n="bd_total">Итого:</span>
-          <strong class="expense-val" id="bdExpenseTotal">0</strong>
-        </div>
-      </div>
-      <button class="breakdown-add-btn" id="bdExpenseAddBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 6px 14px rgba(239,68,68,.3)" title="Добавить расход">
-        <i class="fa-solid fa-plus"></i>
-      </button>
-    </div>
-    <div class="breakdown-list" id="bdExpenseList"></div>
-  </div>
-</div>
-
-<!-- Модалка: Топ-доходов -->
-<div id="topIncomeModal" class="modal" style="display:none">
-  <div class="modal-content top-modal">
-    <button class="close-modal" data-bd-close>&times;</button>
-    <div class="modal-header">
-      <div class="modal-icon" style="background:linear-gradient(135deg,#ffd60a,#ffb800);color:var(--ink);box-shadow:0 12px 24px rgba(255,184,0,.35)"><i class="fa-solid fa-trophy"></i></div>
-      <h2 data-i18n="top_income_modal_title">Откуда главный доход</h2>
-      <p class="muted" data-i18n="top_modal_sub">Разбивка по категориям</p>
-    </div>
-    <div class="top-chart-wrap">
-      <canvas id="topIncomeChart"></canvas>
-      <div class="top-chart-center">
-        <div class="top-chart-center-label" data-i18n="bd_total">Итого</div>
-        <div class="top-chart-center-value" id="topIncomeCenter" style="color:#00a86c">0</div>
-      </div>
-    </div>
-    <div class="top-list" id="topIncomeList"></div>
-  </div>
-</div>
-
-<!-- Модалка: Топ-расходов -->
-<div id="topExpenseModal" class="modal" style="display:none">
-  <div class="modal-content top-modal">
-    <button class="close-modal" data-bd-close>&times;</button>
-    <div class="modal-header">
-      <div class="modal-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 12px 24px rgba(239,68,68,.35)"><i class="fa-solid fa-triangle-exclamation"></i></div>
-      <h2 data-i18n="top_expense_modal_title">На что главные расходы</h2>
-      <p class="muted" data-i18n="top_modal_sub">Разбивка по категориям</p>
-    </div>
-    <div class="top-chart-wrap">
-      <canvas id="topExpenseChart"></canvas>
-      <div class="top-chart-center">
-        <div class="top-chart-center-label" data-i18n="bd_total">Итого</div>
-        <div class="top-chart-center-value" id="topExpenseCenter" style="color:#dc2626">0</div>
-      </div>
-    </div>
-    <div class="top-list" id="topExpenseList"></div>
   </div>
 </div>
 

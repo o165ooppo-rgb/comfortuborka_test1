@@ -685,41 +685,82 @@ function prepareTrendData(list, bucket) {
 function renderCharts(filtered) {
   const bucket = document.getElementById("bucket")?.value || "day";
   const trend = prepareTrendData(filtered, bucket);
-  
+
   const ctxTrend = document.getElementById("chartTrend")?.getContext("2d");
   if(ctxTrend) {
     if(trendChart) trendChart.destroy();
     trendChart = new Chart(ctxTrend, {
-      type: 'line', data: { labels: trend.labels, datasets: [
-        { label: 'Текущий период', data: trend.currentData, borderColor: '#0b66ff', backgroundColor: 'rgba(11,102,255,0.1)', tension: 0.3, fill: true },
-        { label: 'Прошлый период', data: trend.prevData, borderColor: '#fdb500', borderDash: [5,5], backgroundColor: 'transparent', tension: 0.3 }
-      ] }, options: { responsive: true, maintainAspectRatio: true }
+      type: 'line',
+      data: { labels: trend.labels, datasets: [
+        { label: translate("dynamics_current") || 'Текущий', data: trend.currentData, borderColor: '#1e40ff', backgroundColor: 'rgba(30,64,255,0.12)', tension: 0.35, fill: true, borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#1e40ff' },
+        { label: translate("dynamics_previous") || 'Прошлый', data: trend.prevData, borderColor: '#ffb800', borderDash: [6,4], backgroundColor: 'transparent', tension: 0.35, borderWidth: 2, pointRadius: 2, pointHoverRadius: 4, pointBackgroundColor: '#ffb800' }
+      ] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: { font: { size: 11, family: 'Manrope', weight: '700' }, usePointStyle: true, padding: 12, boxWidth: 8, boxHeight: 8 }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(10,18,48,0.92)',
+            padding: 10,
+            cornerRadius: 8,
+            titleFont: { size: 12, weight: '700', family: 'Manrope' },
+            bodyFont: { size: 12, family: 'Manrope' },
+            callbacks: { label: (ctx) => `${ctx.dataset.label}: ${money(ctx.parsed.y)}` }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10, family: 'Manrope' }, color: '#7a829e', maxRotation: 0 } },
+          y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10, family: 'Manrope' }, color: '#7a829e', callback: v => money(v) } }
+        }
+      }
     });
   }
 
   const expensesByCat = new Map();
   filtered.filter(item=>item.type==="expense").forEach(item => expensesByCat.set(item.category, (expensesByCat.get(item.category)||0)+item.amount));
   let sortedExp = [...expensesByCat.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
-  
+
   const ctxDonut = document.getElementById("chartDonut")?.getContext("2d");
   if(ctxDonut) {
     if(donutChart) donutChart.destroy();
-    donutChart = new Chart(ctxDonut, { type: 'doughnut', data: { labels: sortedExp.map(i=>i[0]), datasets: [{ data: sortedExp.map(i=>i[1]), backgroundColor: ['#0b66ff','#22c55e','#fdb500','#ef4444','#8b5cf6','#ec4899'] }] } });
+    donutChart = new Chart(ctxDonut, {
+      type: 'doughnut',
+      data: {
+        labels: sortedExp.map(i=>i[0]),
+        datasets: [{
+          data: sortedExp.map(i=>i[1]),
+          backgroundColor: ['#1e40ff','#00b87a','#ffb800','#ef4444','#8b5cf6','#ec4899'],
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { font: { size: 10.5, family: 'Manrope', weight: '600' }, usePointStyle: true, padding: 8, boxWidth: 8, boxHeight: 8 }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(10,18,48,0.92)',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: { label: ctx => ` ${ctx.label}: ${money(ctx.parsed)}` }
+          }
+        }
+      }
+    });
   }
 
-  const categoryMap = categoryTotals(filtered);
-  const cats = Array.from(categoryMap.keys()).slice(0,8);
-  const incomes = cats.map(c=>categoryMap.get(c).income);
-  const expenses = cats.map(c=>categoryMap.get(c).expense);
-  
-  const ctxBars = document.getElementById("chartBars")?.getContext("2d");
-  if(ctxBars) {
-    if(barChart) barChart.destroy();
-    barChart = new Chart(ctxBars, { type: 'bar', data: { labels: cats, datasets: [
-      { label: 'Доход', data: incomes, backgroundColor: '#22c55e' }, 
-      { label: 'Расход', data: expenses, backgroundColor: '#ef4444' }
-    ] } });
-  }
+  // chartBars удалён — секция "Категории" вырезана из HTML
 }
 
 /* RENDER */
@@ -1078,58 +1119,77 @@ function attachBreakdownHandlers() {
   const topIncomeCard = document.getElementById("topIncomeCard");
   const topExpenseCard = document.getElementById("topExpenseCard");
 
-  if (incomeCard) incomeCard.addEventListener("click", () => openIncomeBreakdown());
-  if (expenseCard) expenseCard.addEventListener("click", () => openExpenseBreakdown());
-  if (topIncomeCard) topIncomeCard.addEventListener("click", () => openTopModal("income"));
-  if (topExpenseCard) topExpenseCard.addEventListener("click", () => openTopModal("expense"));
+  if (incomeCard) incomeCard.addEventListener("click", () => showIncomeDetail());
+  if (expenseCard) expenseCard.addEventListener("click", () => showExpenseDetail());
+  if (topIncomeCard) topIncomeCard.addEventListener("click", () => showTopDetail("income"));
+  if (topExpenseCard) topExpenseCard.addEventListener("click", () => showTopDetail("expense"));
 
-  // Плюсики добавления в breakdown-модалках
-  const bdIncomeAdd = document.getElementById("bdIncomeAddBtn");
-  const bdExpenseAdd = document.getElementById("bdExpenseAddBtn");
-  if (bdIncomeAdd) bdIncomeAdd.addEventListener("click", (e) => {
+  // Плюсики добавления — открывают модалку, оставляя detail-секцию открытой
+  const addIncome = document.getElementById("detailIncomeAddBtn");
+  const addExpense = document.getElementById("detailExpenseAddBtn");
+  if (addIncome) addIncome.addEventListener("click", (e) => {
     e.stopPropagation();
-    closeAllBreakdowns();
     openModal("income");
   });
-  if (bdExpenseAdd) bdExpenseAdd.addEventListener("click", (e) => {
+  if (addExpense) addExpense.addEventListener("click", (e) => {
     e.stopPropagation();
-    closeAllBreakdowns();
     openModal("expense");
   });
 
-  // Закрытие всех breakdown-модалок по клику на крестик или фон
-  document.querySelectorAll(".modal [data-bd-close]").forEach(btn => {
+  // Кнопки «назад» в detail-секциях
+  document.querySelectorAll("[data-detail-close]").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
-      const modal = btn.closest(".modal");
-      if (modal) modal.style.display = "none";
+      closeAllDetails();
     });
   });
-  ["incomeBreakdownModal", "expenseBreakdownModal", "topIncomeModal", "topExpenseModal"].forEach(id => {
-    const m = document.getElementById(id);
-    if (!m) return;
-    m.addEventListener("click", (e) => {
-      if (e.target === m) m.style.display = "none";
-    });
+
+  // Esc — возврат на главную
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      // Если открыта модалка — она сама закроется. Иначе закрываем detail.
+      const anyModalOpen = ["addModal", "passwordModal"].some(id => {
+        const m = document.getElementById(id);
+        return m && m.style.display !== "none" && m.style.display !== "";
+      });
+      if (!anyModalOpen) closeAllDetails();
+    }
   });
 }
 
-function closeAllBreakdowns() {
-  ["incomeBreakdownModal", "expenseBreakdownModal", "topIncomeModal", "topExpenseModal"].forEach(id => {
-    const m = document.getElementById(id);
-    if (m) m.style.display = "none";
+function closeAllDetails() {
+  ["detailIncome", "detailExpense", "detailTopIncome", "detailTopExpense"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
   });
+  const home = document.getElementById("accMainHome");
+  if (home) home.style.display = "";
 }
 
-/* === Доход — список операций === */
-function openIncomeBreakdown() {
+function openDetail(id) {
+  closeAllDetails();
+  const home = document.getElementById("accMainHome");
+  if (home) home.style.display = "none";
+  const el = document.getElementById(id);
+  if (el) {
+    el.style.display = "";
+    // Анимация ре-проигрывается
+    el.style.animation = "none";
+    requestAnimationFrame(() => { el.style.animation = ""; });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+/* === Доход — детали (full-screen) === */
+function showIncomeDetail() {
   const filtered = applyFilter(TX, getFilters());
   const incomeTx = filtered.filter(t => t.type === "income");
   const total = incomeTx.reduce((s, t) => s + (t.amount || 0), 0);
 
-  document.getElementById("bdIncomeTotal").textContent = money(total);
+  const totalEl = document.getElementById("detailIncomeTotal");
+  if (totalEl) totalEl.textContent = money(total);
 
-  const listEl = document.getElementById("bdIncomeList");
+  const listEl = document.getElementById("detailIncomeList");
   if (incomeTx.length === 0) {
     listEl.innerHTML = `<div class="breakdown-empty">
       <i class="fa-regular fa-folder-open"></i>
@@ -1139,18 +1199,19 @@ function openIncomeBreakdown() {
     const sorted = [...incomeTx].sort((a, b) => (b.amount || 0) - (a.amount || 0));
     listEl.innerHTML = sorted.map(t => renderBreakdownItem(t, "income")).join("");
   }
-  document.getElementById("incomeBreakdownModal").style.display = "flex";
+  openDetail("detailIncome");
 }
 
-/* === Расход — список операций === */
-function openExpenseBreakdown() {
+/* === Расход — детали (full-screen) === */
+function showExpenseDetail() {
   const filtered = applyFilter(TX, getFilters());
   const expenseTx = filtered.filter(t => t.type === "expense");
   const total = expenseTx.reduce((s, t) => s + (t.amount || 0), 0);
 
-  document.getElementById("bdExpenseTotal").textContent = money(total);
+  const totalEl = document.getElementById("detailExpenseTotal");
+  if (totalEl) totalEl.textContent = money(total);
 
-  const listEl = document.getElementById("bdExpenseList");
+  const listEl = document.getElementById("detailExpenseList");
   if (expenseTx.length === 0) {
     listEl.innerHTML = `<div class="breakdown-empty">
       <i class="fa-regular fa-folder-open"></i>
@@ -1160,7 +1221,7 @@ function openExpenseBreakdown() {
     const sorted = [...expenseTx].sort((a, b) => (b.amount || 0) - (a.amount || 0));
     listEl.innerHTML = sorted.map(t => renderBreakdownItem(t, "expense")).join("");
   }
-  document.getElementById("expenseBreakdownModal").style.display = "flex";
+  openDetail("detailExpense");
 }
 
 function renderBreakdownItem(item, type) {
@@ -1195,22 +1256,20 @@ function renderBreakdownItem(item, type) {
   `;
 }
 
-// Делегирование клика на кнопках удаления в breakdown-модалках
+// Делегирование клика на кнопках удаления
 document.addEventListener("click", (e) => {
   const btn = e.target.closest(".breakdown-item-delete[data-id]");
   if (!btn) return;
   const id = btn.dataset.id;
   const item = TX.find(t => String(t.id) === String(id));
   if (!item) return;
-  // Закрываем breakdown и открываем password
-  closeAllBreakdowns();
   openPasswordModal(id, {
     type: item.type, note: item.note, amount: item.amount,
     category: item.category, source: item.source || null,
   });
 });
 
-/* === Главный доход / расход — модалка с процентами === */
+/* === Главный доход / расход — full-screen с donut === */
 let _topChartIncome = null;
 let _topChartExpense = null;
 
@@ -1219,11 +1278,10 @@ const TOP_PALETTE = [
   "#06b6d4", "#ef4444", "#84cc16", "#f97316", "#64748b",
 ];
 
-function openTopModal(type) {
+function showTopDetail(type) {
   const filtered = applyFilter(TX, getFilters());
   const list = filtered.filter(t => t.type === type);
 
-  // Группируем по категории
   const byCat = {};
   list.forEach(t => {
     const c = t.category || "Другое";
@@ -1232,14 +1290,14 @@ function openTopModal(type) {
   const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
   const total = sorted.reduce((s, [, v]) => s + v, 0);
 
-  const modal = document.getElementById(type === "income" ? "topIncomeModal" : "topExpenseModal");
+  const detailId = type === "income" ? "detailTopIncome" : "detailTopExpense";
   const canvas = document.getElementById(type === "income" ? "topIncomeChart" : "topExpenseChart");
   const centerEl = document.getElementById(type === "income" ? "topIncomeCenter" : "topExpenseCenter");
   const listEl = document.getElementById(type === "income" ? "topIncomeList" : "topExpenseList");
 
-  centerEl.textContent = money(total);
+  if (centerEl) centerEl.textContent = money(total);
 
-  // Лимит — топ 8, остальные в "Другое"
+  // Лимит — топ 8
   let entries = sorted;
   if (entries.length > 8) {
     const top7 = entries.slice(0, 7);
@@ -1251,7 +1309,6 @@ function openTopModal(type) {
   const values = entries.map(([, v]) => v);
   const colors = entries.map((_, i) => TOP_PALETTE[i % TOP_PALETTE.length]);
 
-  // Список с процентами и прогресс-барами
   if (entries.length === 0) {
     listEl.innerHTML = `<div class="breakdown-empty">
       <i class="fa-regular fa-folder-open"></i>
@@ -1278,34 +1335,39 @@ function openTopModal(type) {
     }).join("");
   }
 
-  // Чарт (donut)
+  // Покажем секцию ДО создания чарта (иначе canvas невидим, Chart.js плохо измеряет)
+  openDetail(detailId);
+
+  // Чарт (donut) — дожидаемся пока секция реально видна
   const existing = type === "income" ? _topChartIncome : _topChartExpense;
   if (existing) existing.destroy();
 
-  const chart = new Chart(canvas, {
-    type: "doughnut",
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: "70%",
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const pct = total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
-              return ` ${ctx.label}: ${money(ctx.parsed)} (${pct}%)`;
+  if (canvas && entries.length > 0) {
+    requestAnimationFrame(() => {
+      const chart = new Chart(canvas, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "70%",
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const pct = total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
+                  return ` ${ctx.label}: ${money(ctx.parsed)} (${pct}%)`;
+                },
+              },
             },
           },
         },
-      },
-    },
-  });
-  if (type === "income") _topChartIncome = chart;
-  else _topChartExpense = chart;
-
-  modal.style.display = "flex";
+      });
+      if (type === "income") _topChartIncome = chart;
+      else _topChartExpense = chart;
+    });
+  }
 }
 
 /* =====================================================================

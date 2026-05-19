@@ -231,6 +231,8 @@ const I18N_DICT = {
                           uz: "Sayt xizmatlarini tahrirlash — o'zgarishlar bosh sahifada darhol ko'rinadi",
                           en: "Edit site services — changes appear on home page instantly" },
   "dir.svc.new":        { ru: "Новая услуга",            uz: "Yangi xizmat",           en: "New service" },
+  "dir.svc.drag":       { ru: "Перетащить",               uz: "Tortish",                en: "Drag" },
+  "dir.svc.reordered":  { ru: "Порядок услуг сохранён",   uz: "Xizmatlar tartibi saqlandi", en: "Services order saved" },
   "dir.svc.editTitle":  { ru: "Редактировать услугу",    uz: "Xizmatni tahrirlash",    en: "Edit service" },
   "dir.svc.formSub":    { ru: "Заполните карточку услуги — она появится на главной странице",
                           uz: "Xizmat kartochkasini to'ldiring — u bosh sahifada paydo bo'ladi",

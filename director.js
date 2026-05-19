@@ -492,25 +492,21 @@ function renderServicesEditor() {
 
   const services = getServices();
 
-  let html = `
-    <div class="services-toolbar">
-      <button class="primary" onclick="openServiceEditor()">
-        <i class="fa-solid fa-plus"></i> ${t("dir.svc.new")}
-      </button>
-      <span class="muted" style="margin-left:auto">${t("common.all")}: ${services.length}</span>
-    </div>
-  `;
+  let html = "";
 
   if (services.length === 0) {
-    html += `<div class="empty-state"><i class="fa-solid fa-broom"></i><p>${escapeHtml(t("dir.svc.empty"))}</p></div>`;
+    html = `<div class="empty-state"><i class="fa-solid fa-broom"></i><p>${escapeHtml(t("dir.svc.empty"))}</p></div>`;
   } else {
-    html += `<div class="services-editor-grid">`;
+    html += `<div class="services-editor-grid" id="svcDragGrid">`;
     services.forEach(s => {
       const inactive = s.active === false ? 'svc-inactive' : '';
       const title = tService(s, "title");
       const description = tService(s, "description");
       html += `
-        <div class="svc-edit-card ${inactive}">
+        <div class="svc-edit-card ${inactive}" draggable="true" data-svc-id="${escapeHtml(s.id)}">
+          <span class="svc-drag-handle" title="${t("dir.svc.drag") || "Перетащить"}">
+            <i class="fa-solid fa-grip-vertical"></i>
+          </span>
           <div class="svc-edit-icon"><i class="fa-solid ${escapeHtml(s.icon || 'fa-broom')}"></i></div>
           <div class="svc-edit-body">
             <div class="svc-edit-title">${escapeHtml(title)}</div>
@@ -536,6 +532,73 @@ function renderServicesEditor() {
   }
 
   grid.innerHTML = html;
+
+  // Подключаем drag & drop
+  attachServiceDragDrop();
+}
+
+/* =========================================================
+   DRAG & DROP для перетаскивания карточек услуг
+========================================================= */
+let _dragSvcId = null;
+
+function attachServiceDragDrop() {
+  const grid = document.getElementById("svcDragGrid");
+  if (!grid) return;
+
+  const cards = grid.querySelectorAll(".svc-edit-card");
+
+  cards.forEach(card => {
+    card.addEventListener("dragstart", (e) => {
+      _dragSvcId = card.dataset.svcId;
+      card.classList.add("is-dragging");
+      // Для Firefox обязательно установить data
+      try { e.dataTransfer.setData("text/plain", _dragSvcId); } catch {}
+      e.dataTransfer.effectAllowed = "move";
+    });
+
+    card.addEventListener("dragend", () => {
+      card.classList.remove("is-dragging");
+      grid.querySelectorAll(".svc-drag-over").forEach(c => c.classList.remove("svc-drag-over"));
+      _dragSvcId = null;
+    });
+
+    card.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!_dragSvcId || card.dataset.svcId === _dragSvcId) return;
+      card.classList.add("svc-drag-over");
+    });
+
+    card.addEventListener("dragleave", () => {
+      card.classList.remove("svc-drag-over");
+    });
+
+    card.addEventListener("drop", (e) => {
+      e.preventDefault();
+      card.classList.remove("svc-drag-over");
+      if (!_dragSvcId || card.dataset.svcId === _dragSvcId) return;
+
+      // Определяем куда вставить — до или после целевой карточки
+      const rect = card.getBoundingClientRect();
+      const horizontalCenter = rect.left + rect.width / 2;
+      const after = e.clientX > horizontalCenter;
+
+      const draggedEl = grid.querySelector(`[data-svc-id="${CSS.escape(_dragSvcId)}"]`);
+      if (!draggedEl) return;
+
+      if (after) {
+        card.parentNode.insertBefore(draggedEl, card.nextSibling);
+      } else {
+        card.parentNode.insertBefore(draggedEl, card);
+      }
+
+      // Сохраняем новый порядок
+      const newOrder = Array.from(grid.querySelectorAll(".svc-edit-card")).map(c => c.dataset.svcId);
+      reorderServices(newOrder, getSession()?.login || "director");
+      showToast("success", t("dir.svc.reordered") || "Порядок сохранён", "");
+    });
+  });
 }
 
 function openServiceEditor(serviceId) {
