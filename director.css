@@ -5,8 +5,6 @@
 
 .director-body {
   margin: 0;
-  display: grid;
-  grid-template-columns: 280px 1fr;
   min-height: 100vh;
   background: var(--bg);
 }
@@ -21,14 +19,24 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  position: sticky;
+  /* Прилипает к левому краю, всегда на месте */
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 280px;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  z-index: 100;
   animation: slideRight .6s var(--ease-out) both;
-  position: relative;
-  overflow: hidden;
 }
+
+/* Тонкий скроллбар */
+.dir-sidebar::-webkit-scrollbar { width: 6px; }
+.dir-sidebar::-webkit-scrollbar-track { background: transparent; }
+.dir-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
+.dir-sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.35); }
 
 @keyframes slideRight {
   from { transform: translateX(-100%); opacity: 0; }
@@ -39,17 +47,17 @@
 .dir-sidebar::before {
   content: "";
   position: absolute;
-  top: -100px; right: -80px;
-  width: 240px; height: 240px;
-  background: radial-gradient(circle, var(--yellow-glow), transparent 70%);
+  top: 0; right: 0;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle at 70% 30%, var(--yellow-glow), transparent 70%);
   pointer-events: none;
 }
 .dir-sidebar::after {
   content: "";
   position: absolute;
-  bottom: -80px; left: -60px;
-  width: 200px; height: 200px;
-  background: radial-gradient(circle, rgba(255, 214, 10, 0.25), transparent 70%);
+  bottom: 0; left: 0;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle at 30% 70%, rgba(255, 214, 10, 0.2), transparent 70%);
   pointer-events: none;
 }
 .dir-sidebar > * { position: relative; z-index: 1; }
@@ -182,6 +190,7 @@
    MAIN
 ========================================================= */
 .dir-main {
+  margin-left: 280px;
   padding: 32px 40px;
   overflow-x: hidden;
 }
@@ -712,9 +721,8 @@
    SERVICES EDITOR (НОВОЕ!)
 ========================================================= */
 /* =========================================================
-   Услуги — сетка карточек (онлайн-магазин стиль)
-   Авто-подгон: ширина карточки минимум 240px, максимум сколько влезет.
-   На широком экране — много в ряду, на узком — меньше, лишние идут вниз.
+   Услуги — сетка как онлайн-магазин: auto-fill,
+   карточки минимум 240px, перенос на новую строку
 ========================================================= */
 .services-editor-grid {
   display: grid !important;
@@ -725,7 +733,7 @@
   box-sizing: border-box;
 }
 
-/* Карточка — вертикальный layout, гибкая, не вылазит за грид-колонку */
+/* Карточка — вертикальный flex, гибкая под любую ширину/зум */
 .svc-edit-card {
   display: flex !important;
   flex-direction: column !important;
@@ -754,12 +762,8 @@
   box-shadow: var(--shadow);
   border-color: var(--blue);
 }
-.svc-edit-card.svc-inactive {
-  opacity: 0.6;
-}
-.svc-edit-card.svc-inactive::before {
-  background: var(--line);
-}
+.svc-edit-card.svc-inactive { opacity: 0.6; }
+.svc-edit-card.svc-inactive::before { background: var(--line); }
 
 .svc-edit-icon {
   width: 52px; height: 52px;
@@ -830,6 +834,52 @@
   min-width: 40px;
   justify-content: center;
   padding: 8px 10px;
+}
+
+/* === DRAG & DROP для услуг === */
+.svc-edit-card[draggable="true"] { cursor: grab; user-select: none; }
+.svc-edit-card[draggable="true"]:active { cursor: grabbing; }
+
+.svc-drag-handle {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 26px; height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-3);
+  color: var(--muted);
+  opacity: 0;
+  transition: all .2s;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 11px;
+}
+.svc-edit-card:hover .svc-drag-handle { opacity: 1; }
+
+.svc-edit-card.is-dragging {
+  opacity: 0.4;
+  transform: scale(.96);
+  cursor: grabbing;
+}
+.svc-edit-card.svc-drag-over {
+  border-color: var(--blue);
+  border-style: dashed;
+  border-width: 2px;
+  background: linear-gradient(135deg, rgba(30, 64, 255, .05), rgba(255, 214, 10, .04));
+  transform: scale(1.02);
+  box-shadow: 0 12px 30px rgba(30, 64, 255, .2);
+}
+
+/* Маленький экран — компактные карточки */
+@media (max-width: 480px) {
+  .svc-edit-card { padding: 14px 12px; gap: 10px; }
+  .svc-edit-icon { width: 46px; height: 46px; font-size: 18px; min-width: 46px; }
+  .svc-edit-title { font-size: 14.5px; }
+  .svc-edit-desc { font-size: 12px; }
+  .svc-edit-price { font-size: 13px; }
+  .svc-drag-handle { display: none; }
 }
 
 /* Icon picker */
@@ -958,17 +1008,26 @@
    RESPONSIVE
 ========================================================= */
 @media (max-width: 1024px) {
-  .director-body { grid-template-columns: 1fr; }
+  /* Сайдбар — выезжающее меню */
   .dir-sidebar {
-    position: relative;
-    height: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 12px;
+    transform: translateX(-100%);
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+    box-shadow: 4px 0 30px rgba(0, 0, 0, .3);
+    animation: none;
   }
-  .dir-nav { flex-direction: row; flex-wrap: wrap; flex: 1 1 100%; }
-  .dir-nav-btn { flex: 0 0 auto; }
-  .dir-bottom { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; }
+  body.sidebar-open .dir-sidebar { transform: translateX(0); }
+  .dir-main { margin-left: 0; }
+  /* Затемнение фона */
+  .dir-sidebar-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, .5);
+    z-index: 99; opacity: 0;
+    transition: opacity .3s;
+  }
+  body.sidebar-open .dir-sidebar-overlay { display: block; opacity: 1; }
+  .dir-burger { display: inline-flex !important; }
+
   .dir-grid-2 { grid-template-columns: 1fr; }
   .chat-shell { grid-template-columns: 1fr; }
   .chat-list { display: none; }
@@ -1600,71 +1659,108 @@
   font-weight: 700;
 }
 
-/* =========================================================
-   DRAG & DROP для услуг — карточки-пазлы
-========================================================= */
-
-/* Карточка готова к перетаскиванию */
-.svc-edit-card[draggable="true"] {
-  cursor: grab;
-  user-select: none;
+/* ============================================================
+   НАСТРОЙКА QR-КОДА ЧЕКА (панель директора/бухгалтера)
+============================================================ */
+.qr-settings-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 22px;
+  align-items: start;
 }
-.svc-edit-card[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-/* Ручка-схватка в углу карточки */
-.svc-drag-handle {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
+.qr-settings-preview {
+  width: 180px;
+  height: 180px;
+  border-radius: 16px;
+  background: var(--bg-3, #f3f5fb);
+  border: 1.5px solid var(--line, #e3e7f0);
+  display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: var(--bg-3);
-  color: var(--muted);
-  cursor: grab;
-  opacity: 0;
-  transition: all .2s;
-  z-index: 2;
-  pointer-events: none;
+  overflow: hidden;
+  flex-shrink: 0;
 }
-.svc-edit-card:hover .svc-drag-handle {
-  opacity: 1;
+.qr-settings-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 10px;
+}
+.qr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted, #8b93a7);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+}
+.qr-empty i { font-size: 38px; opacity: .35; }
+
+.qr-settings-controls {
+  display: flex;
+  flex-direction: column;
+}
+.qr-settings-controls .label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.qr-settings-controls input[type="text"] {
+  width: 100%;
 }
 
-/* Состояние «перетаскивается» */
-.svc-edit-card.is-dragging {
-  opacity: 0.4;
-  transform: scale(.96);
-  cursor: grabbing;
+.qr-or-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 0 12px;
+  color: var(--muted, #8b93a7);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
 }
-
-/* Состояние «целевая зона над которой висит мышь» */
-.svc-edit-card.svc-drag-over {
-  border-color: var(--blue);
-  border-style: dashed;
-  border-width: 2px;
-  background: linear-gradient(135deg, rgba(30, 64, 255, .04), rgba(255, 214, 10, .03));
-  transform: scale(1.02);
-  box-shadow: 0 12px 30px rgba(30, 64, 255, .2);
+.qr-or-divider::before,
+.qr-or-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--line, #e3e7f0);
 }
+.qr-or-divider span { padding: 0 12px; }
 
-/* На мобильных drag & drop не поддерживается нормально — прячем схватку */
-@media (max-width: 768px) {
-  .svc-drag-handle {
-    display: none;
+@media (max-width: 600px) {
+  .qr-settings-grid {
+    grid-template-columns: 1fr;
+    justify-items: center;
   }
+  .qr-settings-controls { width: 100%; }
 }
 
-/* Маленький экран — уменьшаем отступы карточки */
-@media (max-width: 480px) {
-  .svc-edit-card { padding: 14px 12px; gap: 10px; }
-  .svc-edit-icon { width: 46px; height: 46px; font-size: 18px; min-width: 46px; }
-  .svc-edit-title { font-size: 14.5px; }
-  .svc-edit-desc { font-size: 12px; }
-  .svc-edit-price { font-size: 13px; }
+/* ============================================================
+   БУРГЕР-КНОПКА для мобильного сайдбара директора
+============================================================ */
+.dir-burger {
+  display: none;
+  position: fixed;
+  top: 16px; left: 16px;
+  z-index: 101;
+  width: 46px; height: 46px;
+  border-radius: 13px;
+  border: none;
+  background: linear-gradient(135deg, #0a1230, #0a2bd6);
+  color: #fff;
+  font-size: 19px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(10, 18, 48, .3);
+  transition: transform .2s;
+}
+.dir-burger:hover { transform: scale(1.05); }
+.dir-burger:active { transform: scale(.95); }
+body.sidebar-open .dir-burger {
+  left: auto; right: 16px;
+  background: rgba(255, 255, 255, .15);
 }

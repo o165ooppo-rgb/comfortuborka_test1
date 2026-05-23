@@ -17,13 +17,21 @@
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="director.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body class="director-body">
 
+<!-- Бургер-кнопка (только планшет/телефон) -->
+<button class="dir-burger" id="dirBurger" onclick="dirToggleSidebar()" aria-label="Меню">
+  <i class="fa-solid fa-bars" id="dirBurgerIcon"></i>
+</button>
+<div class="dir-sidebar-overlay" id="dirSidebarOverlay" onclick="dirToggleSidebar()"></div>
+
+
   <aside class="dir-sidebar">
     <div class="dir-brand">
-      <i class="fa-solid fa-shield-halved"></i>
+      <i class="fa-solid fa-shield-halved" data-brand-icon></i>
       <div>
         <div class="dir-brand-name">KOMFORT</div>
         <div class="dir-brand-sub" data-i18n="dir.brandSub">Панель директора</div>
@@ -40,6 +48,7 @@
       <button class="dir-nav-btn" data-tab="orders"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="dir.tab.orders">Заказы</span></button>
       <button class="dir-nav-btn" data-tab="clients"><i class="fa-solid fa-address-book"></i> <span data-i18n="dir.tab.clients">Клиенты</span></button>
       <a href="accountant.html" class="dir-nav-btn dir-nav-link"><i class="fa-solid fa-chart-line"></i> <span data-i18n="dir.tab.accounting">Бухгалтерия</span></a>
+      <a href="archive.html" class="dir-nav-btn dir-nav-link"><i class="fa-solid fa-box-archive"></i> <span data-i18n="dir.tab.archive">Архив чеков</span></a>
       <button class="dir-nav-btn" data-tab="settings"><i class="fa-solid fa-gear"></i> <span data-i18n="dir.tab.settings">Настройки</span></button>
       <button class="dir-nav-btn" data-tab="logs"><i class="fa-solid fa-clock-rotate-left"></i> <span data-i18n="dir.tab.logs">Журнал</span></button>
     </nav>
@@ -317,13 +326,15 @@
 
   <!-- Modal: Create User -->
   <div id="createUserModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
+    <div class="modal-content modal-content-narrow">
       <button class="close" onclick="closeCreateUserModal()" aria-label="Close">&times;</button>
       <h2 data-i18n="dir.emp.newAccount">Новый аккаунт</h2>
       <p class="muted" data-i18n="dir.emp.handover">Логин и пароль вы передадите сотруднику лично</p>
 
-      <label class="label" data-i18n="dir.emp.fullName">ФИО / Имя</label>
-      <input type="text" id="newFullName" data-i18n-ph="dir.emp.fullNamePh" placeholder="Имя"/>
+      <div class="create-user-info">
+        <i class="fa-solid fa-circle-info"></i>
+        <span data-i18n="dir.emp.profileNote">Достаточно создать только логин, пароль и роль. Остальные данные (имя, телефон, адрес, фото) сотрудник заполнит сам при первом входе.</span>
+      </div>
 
       <label class="label" data-i18n="login.login">Логин</label>
       <input type="text" id="newLogin" data-i18n-ph="dir.emp.loginPh" placeholder="login" autocomplete="off"/>
@@ -331,15 +342,21 @@
       <label class="label" data-i18n="login.password">Пароль</label>
       <input type="text" id="newPassword" data-i18n-ph="dir.emp.passwordPh" placeholder="password" autocomplete="off"/>
 
-      <label class="label" data-i18n="dir.emp.phone">Телефон</label>
-      <input type="tel" id="newPhone" placeholder="+998 90 ..."/>
-
       <label class="label" data-i18n="dir.emp.role">Роль</label>
       <select id="newRole">
         <option value="worker" data-i18n="role.worker">Сотрудник</option>
+        <option value="supervisor" data-i18n="role.supervisor">Супервайзер</option>
         <option value="accountant" data-i18n="role.accountant">Бухгалтер</option>
         <option value="director" data-i18n="role.director">Директор</option>
       </select>
+
+      <details class="create-user-optional">
+        <summary data-i18n="dir.emp.optional">Дополнительно (необязательно)</summary>
+        <label class="label" data-i18n="dir.emp.fullName">ФИО / Имя</label>
+        <input type="text" id="newFullName" data-i18n-ph="dir.emp.fullNamePh" placeholder="Можно оставить пустым"/>
+        <label class="label" data-i18n="dir.emp.phone">Телефон</label>
+        <input type="tel" id="newPhone" placeholder="+998 90 ..."/>
+      </details>
 
       <div id="createUserError" class="login-error"></div>
 

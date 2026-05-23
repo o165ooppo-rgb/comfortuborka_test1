@@ -15,16 +15,46 @@
   <meta name="apple-mobile-web-app-title" content="Komfort"/>
   <meta name="mobile-web-app-capable" content="yes"/>
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <!-- Font Awesome: сначала пробуем локально, fallback на CDN если файла нет -->
+  <link rel="stylesheet" href="vendor/fontawesome.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';"/>
+  <!-- Резервный CDN на случай если оба заблокированы — иконки всё равно загрузятся через jsDelivr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="accountant.css"/>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+  <!-- Chart.js: локально, иначе jsDelivr, иначе unpkg (тройной fallback) -->
+  <script>
+    (function loadChart() {
+      function tryLoad(src, onFail) {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = function() { console.log('[ACC] Chart.js loaded from', src); };
+        s.onerror = function() { console.warn('[ACC] failed to load Chart.js from', src); if (onFail) onFail(); };
+        document.head.appendChild(s);
+      }
+      tryLoad('vendor/chart.umd.min.js', function() {
+        tryLoad('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', function() {
+          tryLoad('https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js', function() {
+            console.error('[ACC] Chart.js could not be loaded. Charts will not work.');
+          });
+        });
+      });
+    })();
+  </script>
+  <!-- Moment.js не критичен — есть нативный fallback в accountant.js, но попробуем загрузить -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js" onerror="console.warn('moment.js blocked, using native fallback');"></script>
 </head>
 <body class="accountant-body">
+
+<!-- Бургер-кнопка (видна только на планшете/телефоне) -->
+<button class="acc-burger" id="accBurger" onclick="accToggleSidebar()" aria-label="Меню">
+  <i class="fa-solid fa-bars" id="accBurgerIcon"></i>
+</button>
+<!-- Затемнение фона при открытом меню -->
+<div class="acc-sidebar-overlay" id="accSidebarOverlay" onclick="accToggleSidebar()"></div>
+
 
 <!-- ============ ЛЕВЫЙ САЙДБАР ============ -->
 <aside class="acc-sidebar">
@@ -108,8 +138,8 @@
       <h1 data-i18n="app_title">Финансовая панель</h1>
       <p class="muted" data-i18n="app_subtitle">Доходы • Расходы • Прибыль</p>
     </div>
-    <button class="clear-all-btn" id="clearAllBtn" title="Удалить все транзакции и обнулить дашборд">
-      <i class="fa-solid fa-broom"></i>
+    <button class="clear-all-btn" id="clearAllBtn" type="button" aria-label="Обнулить все транзакции и сбросить дашборд" title="Удалить все транзакции и обнулить дашборд">
+      <i class="fa-solid fa-broom" aria-hidden="true"></i>
       <span>Обнулить</span>
     </button>
   </div>
@@ -132,6 +162,12 @@
       <div class="kpi-label"><i class="fa-solid fa-coins"></i> <span data-i18n="profit_kpi">Прибыль</span></div>
       <div class="kpi-value" id="kpiProfit">0</div>
       <div class="kpi-sub" id="kpiProfitSub" data-i18n="margin_label">Маржа: —</div>
+    </div>
+    <div class="kpi kpi-pending glass" id="pendingCard">
+      <span class="kpi-open-hint"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+      <div class="kpi-label"><i class="fa-solid fa-hourglass-half"></i> <span data-i18n="pending_kpi">Ожидаемый доход</span></div>
+      <div class="kpi-value" id="kpiPending">0</div>
+      <div class="kpi-sub" id="kpiPendingSub" data-i18n="pending_empty">Нет ожидающих заказов</div>
     </div>
     <div class="kpi kpi-cash glass">
       <div class="kpi-label"><i class="fa-solid fa-rotate"></i> <span data-i18n="operations_kpi">Операций</span></div>
@@ -203,7 +239,7 @@
 <!-- Доход — детали -->
 <section class="acc-detail" id="detailIncome" style="display:none">
   <header class="acc-detail-head">
-    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <button class="acc-detail-back" data-detail-close type="button" aria-label="Назад"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
     <div class="acc-detail-icon detail-icon-income"><i class="fa-solid fa-arrow-trend-up"></i></div>
     <div class="acc-detail-titles">
       <h1>Доходы</h1>
@@ -225,7 +261,7 @@
 <!-- Расход — детали -->
 <section class="acc-detail" id="detailExpense" style="display:none">
   <header class="acc-detail-head">
-    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <button class="acc-detail-back" data-detail-close type="button" aria-label="Назад"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
     <div class="acc-detail-icon detail-icon-expense"><i class="fa-solid fa-arrow-trend-down"></i></div>
     <div class="acc-detail-titles">
       <h1>Расходы</h1>
@@ -244,10 +280,28 @@
   </div>
 </section>
 
+<!-- Ожидаемый доход — детали -->
+<section class="acc-detail" id="detailPending" style="display:none">
+  <header class="acc-detail-head">
+    <button class="acc-detail-back" data-detail-close type="button" aria-label="Назад"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+    <div class="acc-detail-icon detail-icon-pending"><i class="fa-solid fa-hourglass-half"></i></div>
+    <div class="acc-detail-titles">
+      <h1 data-i18n="pending_detail_title">Ожидаемый доход</h1>
+      <div class="acc-detail-total">
+        <span class="muted" id="detailPendingCount" data-i18n="pending_detail_sub">Заказы ждущие оплаты</span>
+        <strong class="pending-val" id="detailPendingTotal">0</strong>
+      </div>
+    </div>
+  </header>
+  <div class="acc-detail-body">
+    <div class="breakdown-list" id="detailPendingList"></div>
+  </div>
+</section>
+
 <!-- Главный доход — детали -->
 <section class="acc-detail" id="detailTopIncome" style="display:none">
   <header class="acc-detail-head">
-    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <button class="acc-detail-back" data-detail-close type="button" aria-label="Назад"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
     <div class="acc-detail-icon detail-icon-trophy"><i class="fa-solid fa-trophy"></i></div>
     <div class="acc-detail-titles">
       <h1>Главный доход</h1>
@@ -275,7 +329,7 @@
 <!-- Главный расход — детали -->
 <section class="acc-detail" id="detailTopExpense" style="display:none">
   <header class="acc-detail-head">
-    <button class="acc-detail-back" data-detail-close><i class="fa-solid fa-arrow-left"></i></button>
+    <button class="acc-detail-back" data-detail-close type="button" aria-label="Назад"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
     <div class="acc-detail-icon detail-icon-warn"><i class="fa-solid fa-triangle-exclamation"></i></div>
     <div class="acc-detail-titles">
       <h1>Главный расход</h1>
@@ -303,7 +357,7 @@
 <!-- ============ МОДАЛКА ДОБАВЛЕНИЯ ============ -->
 <div id="addModal" class="modal" style="display: none;">
   <div class="modal-content">
-    <button class="close-modal" id="closeModalBtn">&times;</button>
+    <button class="close-modal" id="closeModalBtn" type="button" aria-label="Закрыть">&times;</button>
     <div class="modal-header">
       <div class="modal-icon" id="modalIcon"><i class="fa-solid fa-money-bill-trend-up"></i></div>
       <h2 id="modalTitle" data-i18n="modal_income_title">Добавить доход</h2>
@@ -351,7 +405,7 @@
 <!-- ============ МОДАЛКА КОДА (удаление) ============ -->
 <div id="passwordModal" class="modal" style="display: none;">
   <div class="modal-content" style="max-width: 420px;">
-    <button class="close-modal" id="closePasswordModalBtn">&times;</button>
+    <button class="close-modal" id="closePasswordModalBtn" type="button" aria-label="Закрыть">&times;</button>
     <div class="modal-header">
       <div class="modal-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 12px 24px rgba(239,68,68,.35);"><i class="fa-solid fa-lock"></i></div>
       <h2 data-i18n="password_title">Подтверждение удаления</h2>

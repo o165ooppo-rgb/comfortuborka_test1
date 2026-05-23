@@ -384,6 +384,7 @@ function buildReceiptHtml(order) {
       </div>
       <div class="receipt-status" style="background:${payColor}">${payLabel}</div>
       <div class="receipt-foot"><p>${t("receipt.thanks")}</p></div>
+      ${typeof buildReceiptQrHtml === "function" ? buildReceiptQrHtml() : ""}
     </div>
   `;
 }

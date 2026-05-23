@@ -40,8 +40,9 @@ window.FIREBASE_DEBUG = true;   // поставь false когда всё раб
     "kus_attendance":    "attendance",
     "kus_heartbeat":     "heartbeat",
     "kus_tasks":         "tasks",
-    "finance_transactions_v2": "finance_tx",
-    "finance_activity_logs":   "finance_logs",
+    "finance_transactions_v2":      "finance_tx",
+    "finance_activity_logs":        "finance_logs",
+    "kus_finance_deleted_order_ids":"finance_deleted_orders",
   };
 
   const LOCAL_ONLY_KEYS = ["kus_session"];

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Komfort Uborka — Профиль</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1e40ff"/>
+  <link rel="icon" type="image/png" href="favicon-32.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Komfort"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="login-body">
+
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+  </div>
+
+  <div class="profile-shell">
+    <!-- Переключатель языка -->
+    <div class="login-lang-row" id="profileLangRow"></div>
+
+    <div class="profile-card">
+      <div class="profile-welcome">
+        <div class="profile-welcome-icon"><i class="fa-solid fa-id-card"></i></div>
+        <h1 data-i18n="profile.title">Заполните профиль</h1>
+        <p class="muted" data-i18n="profile.sub">Это нужно сделать один раз. Данные увидит только директор.</p>
+      </div>
+
+      <!-- Аватар -->
+      <div class="profile-avatar-section">
+        <div class="profile-avatar-box" id="profileAvatarBox" onclick="document.getElementById('avatarFileInput').click()">
+          <div class="profile-avatar-empty" id="profileAvatarEmpty">
+            <i class="fa-solid fa-camera"></i>
+            <span data-i18n="profile.addPhoto">Добавить фото</span>
+          </div>
+          <img id="profileAvatarImg" style="display:none" alt="avatar"/>
+        </div>
+        <input type="file" id="avatarFileInput" accept="image/*" capture="user" style="display:none" onchange="profileHandleAvatar(event)"/>
+        <div class="profile-avatar-hint muted" data-i18n="profile.photoHint">Нажмите чтобы выбрать из галереи или снять камерой</div>
+      </div>
+
+      <!-- Имя -->
+      <label class="field">
+        <span class="field-label"><i class="fa-solid fa-user"></i> <span data-i18n="profile.fullName">ФИО / Имя</span></span>
+        <input type="text" id="pName" autocomplete="name" data-i18n-ph="profile.fullNamePh" placeholder="Ваше полное имя"/>
+      </label>
+
+      <!-- Телефон -->
+      <label class="field">
+        <span class="field-label"><i class="fa-solid fa-phone"></i> <span data-i18n="profile.phone">Номер телефона</span></span>
+        <input type="tel" id="pPhone" autocomplete="tel" data-i18n-ph="profile.phonePh" placeholder="+998 90 123 45 67"/>
+      </label>
+
+      <!-- Адрес с геолокацией -->
+      <label class="field">
+        <span class="field-label"><i class="fa-solid fa-location-dot"></i> <span data-i18n="profile.address">Адрес проживания</span></span>
+        <div class="profile-address-row">
+          <input type="text" id="pAddress" autocomplete="street-address" data-i18n-ph="profile.addressPh" placeholder="Где вы проживаете"/>
+          <button type="button" class="ghost-btn small" onclick="profileDetectLocation()" id="pDetectBtn">
+            <i class="fa-solid fa-location-crosshairs"></i>
+            <span data-i18n="profile.detect">Определить</span>
+          </button>
+        </div>
+        <div id="pAddressStatus" class="address-status" style="display:none"></div>
+      </label>
+
+      <div id="profileError" class="login-error" style="display:none"></div>
+
+      <button class="primary login-submit" onclick="profileSubmit()" id="profileSubmitBtn">
+        <i class="fa-solid fa-check"></i>
+        <span data-i18n="profile.submit">Сохранить и продолжить</span>
+      </button>
+
+      <button class="ghost-btn profile-logout-btn" onclick="profileLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        <span data-i18n="nav.logout">Выйти</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="i18n.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="auth.js"></script>
+  <script src="profile.js"></script>
+  <script src="pwa.js"></script>
+</body>
+</html>

@@ -29,8 +29,8 @@ bootstrapApp({}, function (s) {
   renderOrderHistory();
   renderSessionBanner();
 
-  // Инициализируем чат для бухгалтеров (директор использует свою панель)
-  if (session.role === "accountant") {
+  // Инициализируем чат для бухгалтеров и супервайзеров (директор использует свою панель)
+  if (session.role === "accountant" || session.role === "supervisor") {
     initStaffChat();
     initMyTasks();
   }
@@ -42,7 +42,7 @@ bootstrapApp({}, function (s) {
     if (e.key === "kus_all_orders") renderOrderHistory();
     if (e.key === "kus_chats") refreshStaffChat();
     if (e.key === "kus_users") refreshArriveLeaveButtons();
-    if (e.key === "kus_tasks" && session.role === "accountant") {
+    if (e.key === "kus_tasks" && (session.role === "accountant" || session.role === "supervisor")) {
       renderMyTasks();
       refreshMyTasksBadge();
     }
@@ -56,7 +56,7 @@ bootstrapApp({}, function (s) {
     renderOrderHistory();
     renderSessionBanner();
     applySettings();
-    if (session.role === "accountant") renderMyTasks();
+    if (session.role === "accountant" || session.role === "supervisor") renderMyTasks();
   });
 });
 
@@ -119,8 +119,36 @@ function renderNav() {
         <i class="fa-solid fa-comments"></i><span class="btn-text">${t("nav.chat")}</span>
         <span id="navChatBadge" class="nav-chat-badge" style="display:none">0</span>
       </button>
+      <button onclick="window.location.href='archive.html'" class="nav-button">
+        <i class="fa-solid fa-box-archive"></i><span class="btn-text">${t("nav.archive") || "Архив"}</span>
+      </button>
       <button onclick="window.location.href='accountant.html'" class="nav-button">
         <i class="fa-solid fa-calculator"></i><span class="btn-text">${t("nav.accountant")}</span>
+      </button>
+      <button onclick="doLogout()" class="nav-button nav-button-danger">
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.logout")}</span>
+      </button>
+    `;
+    refreshArriveLeaveButtons();
+    return;
+  }
+
+  // Супервайзер — то же что бухгалтер, НО без доступа к бухгалтерии
+  if (role === "supervisor") {
+    navRight.innerHTML = `
+      <span class="user-chip user-chip-sv"><i class="fa-solid fa-user-shield"></i> ${escapeHtml(session.fullName)}</span>
+      <button onclick="openTurnstile('check_in')" class="nav-button nav-button-arrive" id="navArriveBtn">
+        <i class="fa-solid fa-right-to-bracket"></i><span class="btn-text">${t("nav.arrive")}</span>
+      </button>
+      <button onclick="openTurnstile('check_out')" class="nav-button nav-button-leave" id="navLeaveBtn">
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.leave")}</span>
+      </button>
+      <button onclick="toggleStaffChat()" class="nav-button nav-button-chat" id="navChatBtn">
+        <i class="fa-solid fa-comments"></i><span class="btn-text">${t("nav.chat")}</span>
+        <span id="navChatBadge" class="nav-chat-badge" style="display:none">0</span>
+      </button>
+      <button onclick="window.location.href='archive.html'" class="nav-button">
+        <i class="fa-solid fa-box-archive"></i><span class="btn-text">${t("nav.archive") || "Архив"}</span>
       </button>
       <button onclick="doLogout()" class="nav-button nav-button-danger">
         <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text">${t("nav.logout")}</span>
@@ -133,6 +161,9 @@ function renderNav() {
   // Директор
   navRight.innerHTML = `
     <span class="user-chip user-chip-dir"><i class="fa-solid fa-shield-halved"></i> ${escapeHtml(session.fullName)}</span>
+    <button onclick="window.location.href='archive.html'" class="nav-button">
+      <i class="fa-solid fa-box-archive"></i><span class="btn-text">${t("nav.archive") || "Архив"}</span>
+    </button>
     <button onclick="window.location.href='director.html'" class="nav-button nav-button-dark">
       <i class="fa-solid fa-shield-halved"></i><span class="btn-text">${t("nav.directorPanel")}</span>
     </button>
@@ -145,8 +176,10 @@ function renderNav() {
 function renderSessionBanner() {
   const el = document.getElementById("sessionBanner");
   if (!el) return;
-  const roleColor = session.role === "director" ? "var(--blue)"
-                  : session.role === "accountant" ? "#0ea5e9" : "#00b87a";
+  let roleColor = "#00b87a"; // worker
+  if (session.role === "director") roleColor = "var(--blue)";
+  else if (session.role === "accountant") roleColor = "#0ea5e9";
+  else if (session.role === "supervisor") roleColor = "#8b5cf6";
   el.innerHTML = `
     <div class="session-info">
       <span class="dot" style="background:${roleColor}"></span>
@@ -223,7 +256,7 @@ function renderServices() {
    ОФОРМЛЕНИЕ ЗАКАЗА (новая логика — без модалки услуги)
 ========================================================= */
 function canCreateOrder() {
-  return session && (session.role === "director" || session.role === "accountant");
+  return canRole(session, "canCreateOrder");
 }
 
 function openOrderForm(serviceId) {
@@ -265,6 +298,11 @@ function openOrderForm(serviceId) {
   document.getElementById("orderPrice").oninput = updateRemaining;
   document.getElementById("orderAdvance").oninput = updateRemaining;
 
+  // Индикатор загруженности дня — обновляется при смене даты
+  const dateInput = document.getElementById("date");
+  dateInput.onchange = updateDayLoadIndicator;
+  updateDayLoadIndicator();
+
   // По умолчанию unpaid
   const unpaidRadio = document.querySelector('input[name="payment"][value="unpaid"]');
   if (unpaidRadio) unpaidRadio.checked = true;
@@ -274,6 +312,38 @@ function openOrderForm(serviceId) {
 
   // Авто-запуск определения адреса
   orderDetectLocation();
+}
+
+/* Индикатор загруженности дня в форме заказа */
+function updateDayLoadIndicator() {
+  const dateInput = document.getElementById("date");
+  const indicator = document.getElementById("dayLoadIndicator");
+  if (!dateInput || !indicator) return;
+  const date = dateInput.value;
+  if (!date) { indicator.style.display = "none"; return; }
+  const cnt = countOrdersOnDate(date);
+  const threshold = getDayLoadThreshold();
+  indicator.style.display = "flex";
+  let cls, icon, msg;
+  if (cnt >= threshold) {
+    cls = "day-load-bad";
+    icon = "fa-triangle-exclamation";
+    msg = `${t("order.dayLoadOverload") || "Перегруз!"} ${cnt} ${t("order.dayLoadOrders") || "заказов"}`;
+  } else if (cnt >= Math.max(1, threshold - 1)) {
+    cls = "day-load-warn";
+    icon = "fa-circle-exclamation";
+    msg = `${cnt} ${t("order.dayLoadOrders") || "заказов"} — ${t("order.dayLoadBusy") || "напряжённо"}`;
+  } else if (cnt > 0) {
+    cls = "day-load-ok";
+    icon = "fa-circle-info";
+    msg = `${cnt} ${t("order.dayLoadOrders") || "заказов"}`;
+  } else {
+    cls = "day-load-free";
+    icon = "fa-circle-check";
+    msg = t("order.dayLoadFree") || "День свободен";
+  }
+  indicator.className = "day-load-indicator " + cls;
+  indicator.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${escapeHtml(msg)}</span>`;
 }
 
 function closeOrderForm() {
@@ -392,6 +462,25 @@ function confirmOrder() {
     return;
   }
 
+  // === Проверка загруженности дня ===
+  const ordersOnDay = countOrdersOnDate(date);
+  const threshold = getDayLoadThreshold();
+  if (ordersOnDay >= threshold) {
+    // Перегруз — требуем подтверждение
+    const msg = `⚠️ ${t("order.dayOverloadTitle") || "Перегруз!"}\n\n${t("order.dayOverloadMsg", {
+      n: ordersOnDay, date: date
+    }) || `На дату ${date} уже ${ordersOnDay} заказов. День будет очень напряжённым.`}\n\n${t("order.dayOverloadConfirm") || "Точно создать ещё один заказ на этот день?"}`;
+    if (!confirm(msg)) {
+      errEl.style.display = "block";
+      errEl.textContent = t("order.dayOverloadShort") || `На ${date} уже ${ordersOnDay} заказов. Перенесите на другой день.`;
+      return;
+    }
+  } else if (ordersOnDay >= Math.max(1, threshold - 1)) {
+    // Близко к лимиту — мягкое предупреждение (без обязательного подтверждения)
+    showToast("info", t("order.dayBusyTitle") || "Напряжённый день",
+      t("order.dayBusyMsg", { n: ordersOnDay + 1, date: date }) || `Это будет ${ordersOnDay + 1}-й заказ на ${date}`);
+  }
+
   let payment = "unpaid";
   const payRadio = document.querySelector('input[name="payment"]:checked');
   if (payRadio) payment = payRadio.value;
@@ -432,6 +521,7 @@ function renderOrderHistory() {
   if (session.role === "worker") {
     orders = orders.filter(o => !o.takenBy || o.takenBy === session.login);
   }
+  // Supervisor / accountant / director видят ВСЕ заказы
 
   if (orders.length === 0) {
     wrap.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open"></i><p>${escapeHtml(t("order.empty"))}</p></div>`;
@@ -441,10 +531,10 @@ function renderOrderHistory() {
   wrap.innerHTML = orders.map(o => {
     const payClass = o.payment === "paid" ? "pay-paid" : o.payment === "draft" ? "pay-draft" : "pay-unpaid";
     const payIcon = o.payment === "paid" ? "fa-check" : o.payment === "draft" ? "fa-pen-ruler" : "fa-xmark";
-    const isWorker = session.role === "worker";
-    const canTake = isWorker && !o.takenBy;
+    const canTakeRole = canRole(session, "canTakeOrder");
+    const canTake = canTakeRole && !o.takenBy;
     const takenBadge = o.takenBy
-      ? `<span class="badge"><i class="fa-solid fa-user-check"></i> ${escapeHtml(o.takenBy)}</span>`
+      ? `<span class="badge"><i class="fa-solid fa-user-check"></i> ${escapeHtml(o.takenBy)}${o.startDate ? ` · ${escapeHtml(o.startDate)}${o.startTime ? " " + escapeHtml(o.startTime) : ""}` : ""}</span>`
       : `<span class="badge badge-free"><i class="fa-solid fa-circle-dot"></i> ${t("order.free")}</span>`;
 
     // Заголовок: пытаемся взять перевод услуги если есть
@@ -501,10 +591,141 @@ function renderOrderHistory() {
   }).join("");
 }
 
+/* =========================================================
+   ВЗЯТЬ ЗАКАЗ — открывает модалку "Когда начать работу"
+========================================================= */
+let _takingOrderId = null;
+
 function handleTakeOrder(orderId) {
-  const res = takeOrder(orderId, session.login);
-  if (!res.ok) showToast("error", t("order.takeFail"), res.error);
-  else { showToast("success", t("order.taken"), t("order.takeOk")); renderOrderHistory(); }
+  const order = getAllOrders().find(o => o.id === orderId);
+  if (!order) {
+    showToast("error", t("common.error"), "Заказ не найден");
+    return;
+  }
+  if (order.takenBy) {
+    showToast("error", t("order.takeFail"), "Заказ уже взят");
+    return;
+  }
+  _takingOrderId = orderId;
+  openTakeOrderModal(order);
+}
+
+function openTakeOrderModal(order) {
+  const modal = document.getElementById("takeOrderModal");
+  if (!modal) {
+    // Fallback: если модалки нет — просто берём заказ
+    const res = takeOrder(order.id, session.login);
+    if (res.ok) {
+      showToast("success", t("order.taken"), t("order.takeOk"));
+      renderOrderHistory();
+    }
+    return;
+  }
+
+  // Заполняем данные
+  const lang = getCurrentLang();
+  let serviceTitle = order.serviceTitle || "—";
+  if (lang === "ru" && order.serviceTitleRu) serviceTitle = order.serviceTitleRu;
+  else if (lang === "uz" && order.serviceTitleUz) serviceTitle = order.serviceTitleUz;
+  else if (lang === "en" && order.serviceTitleEn) serviceTitle = order.serviceTitleEn;
+
+  document.getElementById("toService").textContent = serviceTitle;
+  document.getElementById("toClient").textContent = (order.name || "—") + (order.phone ? " · " + order.phone : "");
+  document.getElementById("toAddress").textContent = order.address || "—";
+
+  // Когда взят (now)
+  const now = new Date();
+  const nowDate = now.toLocaleDateString(lang === "uz" ? "uz-UZ" : lang === "en" ? "en-US" : "ru-RU");
+  const nowTime = now.toTimeString().slice(0, 5);
+  document.getElementById("toTakenAt").textContent = `${nowDate} ${nowTime}`;
+
+  // Когда клиент хочет
+  const wantedStr = `${order.date || "—"}${order.time ? " · " + order.time : ""}`;
+  document.getElementById("toWantedAt").textContent = wantedStr;
+
+  // Когда фактически начнёт — default = желаемая клиентом
+  const startDateInput = document.getElementById("toStartDate");
+  const startTimeInput = document.getElementById("toStartTime");
+  startDateInput.value = order.date || now.toISOString().slice(0, 10);
+  startTimeInput.value = order.time || now.toTimeString().slice(0, 5);
+
+  // Скрываем предупреждение, привязываем onchange для проверки
+  document.getElementById("toWarning").style.display = "none";
+  startDateInput.onchange = () => updateTakeOrderWarning(order);
+  startTimeInput.onchange = () => updateTakeOrderWarning(order);
+  updateTakeOrderWarning(order);
+
+  modal.classList.add("open");
+}
+
+function updateTakeOrderWarning(order) {
+  const startDate = document.getElementById("toStartDate").value;
+  const startTime = document.getElementById("toStartTime").value;
+  const warningEl = document.getElementById("toWarning");
+  if (!startDate || !order.date) { warningEl.style.display = "none"; return; }
+
+  // Сравнение дат+времени
+  const start = new Date(`${startDate}T${startTime || "00:00"}`);
+  const wanted = new Date(`${order.date}T${order.time || "00:00"}`);
+  const diffMs = start - wanted;
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffHours > 0.5) {
+    // Опоздание больше 30 минут
+    const days = Math.floor(diffHours / 24);
+    let timeStr = "";
+    if (days >= 1) timeStr = `${days} ${days === 1 ? "день" : "дн."}`;
+    else if (diffHours >= 1) timeStr = `${Math.round(diffHours)} ч.`;
+    else timeStr = `${Math.round(diffMs / 60000)} мин.`;
+    warningEl.className = "take-order-warn take-order-warn-bad";
+    warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>
+      <div><strong>${t("take.warnLate") || "Опоздание!"}</strong>
+      <div class="muted">${(t("take.warnLateMsg") || "Клиент хочет на").replace("{wanted}", "")} ${order.date} ${order.time}, а вы начнёте на ${timeStr} позже</div></div>`;
+    warningEl.style.display = "flex";
+  } else if (diffHours < -2) {
+    // Сильно раньше — тоже знак внимания
+    warningEl.className = "take-order-warn take-order-warn-info";
+    warningEl.innerHTML = `<i class="fa-solid fa-circle-info"></i>
+      <div><strong>${t("take.warnEarly") || "Раньше срока"}</strong>
+      <div class="muted">${t("take.warnEarlyMsg") || "Вы начнёте раньше чем хотел клиент. Уточните у него."}</div></div>`;
+    warningEl.style.display = "flex";
+  } else {
+    warningEl.className = "take-order-warn take-order-warn-ok";
+    warningEl.innerHTML = `<i class="fa-solid fa-circle-check"></i>
+      <div><strong>${t("take.warnOk") || "Хорошо!"}</strong>
+      <div class="muted">${t("take.warnOkMsg") || "Вовремя по плану клиента"}</div></div>`;
+    warningEl.style.display = "flex";
+  }
+}
+
+function closeTakeOrderModal() {
+  document.getElementById("takeOrderModal").classList.remove("open");
+  _takingOrderId = null;
+}
+
+function confirmTakeOrder() {
+  if (!_takingOrderId) return;
+  const startDate = document.getElementById("toStartDate").value;
+  const startTime = document.getElementById("toStartTime").value;
+  if (!startDate || !startTime) {
+    showToast("error", t("common.error"), "Укажите дату и время начала работы");
+    return;
+  }
+
+  // Если есть бэдж "опоздание" — требуем подтверждение
+  const warningEl = document.getElementById("toWarning");
+  if (warningEl && warningEl.classList.contains("take-order-warn-bad")) {
+    if (!confirm(t("take.lateConfirm") || "Вы начнёте позже чем хочет клиент. Точно взять?")) return;
+  }
+
+  const res = takeOrder(_takingOrderId, session.login, { startDate, startTime });
+  if (!res.ok) {
+    showToast("error", t("order.takeFail"), res.error);
+    return;
+  }
+  showToast("success", t("order.taken"), t("order.takeOk"));
+  closeTakeOrderModal();
+  renderOrderHistory();
 }
 
 /* =========================================================
@@ -1048,6 +1269,8 @@ function buildReceiptHtml(order) {
       <div class="receipt-foot">
         <p>${t("receipt.thanks")}</p>
       </div>
+
+      ${typeof buildReceiptQrHtml === "function" ? buildReceiptQrHtml() : ""}
     </div>
   `;
 }
@@ -1071,7 +1294,7 @@ function printReceipt() {
 /* ===== Отправка чека сотруднику ===== */
 function openSendReceiptModal() {
   if (!_currentReceiptOrderId) return;
-  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant" || u.role === "supervisor");
   const list = document.getElementById("receiptStaffList");
 
   if (users.length === 0) {
@@ -1080,7 +1303,7 @@ function openSendReceiptModal() {
     list.innerHTML = users.map(u => `
       <label class="staff-pick-item">
         <input type="checkbox" class="staff-pick-cb" data-login="${escapeHtml(u.login)}"/>
-        <div class="staff-pick-avatar"><i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : 'fa-user'}"></i></div>
+        <div class="staff-pick-avatar"><i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : (u.role === 'supervisor' ? 'fa-user-shield' : 'fa-user')}"></i></div>
         <div class="staff-pick-info">
           <div class="staff-pick-name">${escapeHtml(u.fullName || u.login)}</div>
           <div class="staff-pick-role muted">${roleLabel(u.role)}</div>

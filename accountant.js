@@ -233,7 +233,25 @@ const translations = {
     log_today: "🗓️ Bugun",
     log_yesterday: "📅 Kecha",
     log_this_week: "📆 Shu hafta",
-    log_older: "📁 Avvalgi"
+    log_older: "📁 Avvalgi",
+    pending_kpi: "💎 Kutilayotgan daromad",
+    pending_empty: "Kutilayotgan buyurtmalar yo'q",
+    pending_orders_count: "buyurtma to'lovni kutmoqda",
+    pending_type: "Kutilmoqda",
+    src_advance: "Avans",
+    src_final: "Qoldiq to'lov",
+    src_paid: "To'langan",
+    src_pending: "Kutilmoqda",
+    rc_price: "Narx",
+    rc_advance: "Avans",
+    rc_remaining: "Qoldiq",
+    rc_client: "Mijoz",
+    rc_order: "Buyurtma",
+    rc_tx_date: "Operatsiya sanasi",
+    rc_order_deleted: "Buyurtma o'chirilgan, tranzaksiya saqlangan",
+    pending_detail_title: "Kutilayotgan daromad",
+    pending_detail_sub: "To'lovni kutayotgan buyurtmalar",
+    delete: "O'chirish"
   },
   en: {
     app_title: "Finance Dashboard",
@@ -330,7 +348,25 @@ const translations = {
     log_today: "🗓️ Today",
     log_yesterday: "📅 Yesterday",
     log_this_week: "📆 This week",
-    log_older: "📁 Older"
+    log_older: "📁 Older",
+    pending_kpi: "💎 Expected income",
+    pending_empty: "No pending orders",
+    pending_orders_count: "order(s) awaiting payment",
+    pending_type: "Pending",
+    src_advance: "Advance",
+    src_final: "Final pay",
+    src_paid: "Paid",
+    src_pending: "Pending",
+    rc_price: "Price",
+    rc_advance: "Advance",
+    rc_remaining: "Remaining",
+    rc_client: "Client",
+    rc_order: "Order",
+    rc_tx_date: "Transaction date",
+    rc_order_deleted: "Order was deleted, transaction kept",
+    pending_detail_title: "Expected income",
+    pending_detail_sub: "Orders awaiting payment",
+    delete: "Delete"
   },
   ru: {
     app_title: "Finance Dashboard",
@@ -427,7 +463,25 @@ const translations = {
     log_today: "🗓️ Сегодня",
     log_yesterday: "📅 Вчера",
     log_this_week: "📆 Эта неделя",
-    log_older: "📁 Ранее"
+    log_older: "📁 Ранее",
+    pending_kpi: "💎 Ожидаемый доход",
+    pending_empty: "Нет ожидающих заказов",
+    pending_orders_count: "заказ(ов) ждут оплаты",
+    pending_type: "Ожидает",
+    src_advance: "Аванс",
+    src_final: "Доплата",
+    src_paid: "Оплачен",
+    src_pending: "Ожидание",
+    rc_price: "Цена",
+    rc_advance: "Аванс",
+    rc_remaining: "Остаток",
+    rc_client: "Клиент",
+    rc_order: "Заказ",
+    rc_tx_date: "Дата операции",
+    rc_order_deleted: "Заказ удалён, транзакция сохранена",
+    pending_detail_title: "Ожидаемый доход",
+    pending_detail_sub: "Заказы ждущие оплаты",
+    delete: "Удалить"
   }
 };
 
@@ -544,7 +598,11 @@ function clearDeletedOrderIds() {
   localStorage.removeItem(DELETED_ORDER_IDS_KEY);
 }
 
-/* Авто-импорт оплаченных заказов и авансов из системы как доходных транзакций */
+/* Авто-импорт из заказов:
+   1) АВАНС — когда заказ создан с предоплатой (independent transaction)
+   2) ДОПЛАТА — когда статус paid и был аванс (income = price - advance)
+   3) ПОЛНАЯ ОПЛАТА — когда заказ paid И аванса не было (income = price)
+   4) ОЖИДАЕМЫЙ ДОХОД (pending) — unpaid / draft заказы (НЕ суммируется в доход) */
 function mergeWithOrders(manualTx) {
   if (typeof getAllOrders !== "function") return manualTx;
   const deletedIds = getDeletedOrderIds();
@@ -555,25 +613,91 @@ function mergeWithOrders(manualTx) {
       // Пропускаем заказы, которые юзер вручную удалил из бухгалтерии
       if (deletedIds.includes(o.id)) return;
 
-      const price = o.price || o.total || 0;
-      const advance = o.advance || 0;
-      const orderDate = ((o.createdAt || o.date || todayISO()) + "").slice(0, 10);
+      const price = Number(o.price || o.total || 0);
+      const advance = Number(o.advance || 0);
+      const remaining = Math.max(0, price - advance);
+
+      // Дата создания заказа — день когда был внесён аванс (если не указана отдельная дата)
+      const createdDate = ((o.createdAt || o.date || todayISO()) + "").slice(0, 10);
+      const advanceDate = ((o.advanceAt || o.createdAt || o.date || todayISO()) + "").slice(0, 10);
+      const paidDate = ((o.paidAt || o.createdAt || o.date || todayISO()) + "").slice(0, 10);
+
+      // Имя услуги — приоритет русский (фиксируется в момент создания заказа,
+      // не должно "плавать" при переключении языка)
       const svc = o.serviceTitleRu || o.serviceTitle || o.serviceTitleUz || o.serviceTitleEn || "Услуга";
       const clientName = o.name || "";
+      const shortId = (o.id || "").slice(-6);
 
-      if (o.payment === "paid" && price > 0) {
+      // === 1) АВАНС — если есть, всегда отдельной строкой ===
+      if (advance > 0) {
         orderTx.push({
-          id: "order-paid-" + o.id, type: "income", amount: price, date: orderDate,
-          category: svc, method: "cash",
-          note: `Заказ #${(o.id || "").slice(-6)} — ${clientName}`,
-          tag: "order", source: "order", orderId: o.id,
+          id: "order-adv-" + o.id,
+          type: "income",
+          amount: advance,
+          date: advanceDate,
+          category: svc,
+          method: "cash",
+          note: `Аванс • Заказ #${shortId} • ${clientName}`,
+          tag: "advance",
+          source: "order",
+          source_kind: "advance",
+          orderId: o.id,
+          readonly: true,
         });
-      } else if (advance > 0) {
+      }
+
+      // === 2) ОПЛАЧЕН — либо доплата (если был аванс), либо полная сумма ===
+      if (o.payment === "paid" && price > 0) {
+        if (advance > 0 && remaining > 0) {
+          // Доплата остатка
+          orderTx.push({
+            id: "order-final-" + o.id,
+            type: "income",
+            amount: remaining,
+            date: paidDate,
+            category: svc,
+            method: "cash",
+            note: `Доплата • Заказ #${shortId} • ${clientName}`,
+            tag: "final",
+            source: "order",
+            source_kind: "final",
+            orderId: o.id,
+            readonly: true,
+          });
+        } else if (advance === 0) {
+          // Сразу полная оплата без аванса
+          orderTx.push({
+            id: "order-paid-" + o.id,
+            type: "income",
+            amount: price,
+            date: paidDate,
+            category: svc,
+            method: "cash",
+            note: `Оплата • Заказ #${shortId} • ${clientName}`,
+            tag: "paid",
+            source: "order",
+            source_kind: "paid",
+            orderId: o.id,
+            readonly: true,
+          });
+        }
+        // Если был аванс == price, обе транзакции уже = price, доплачивать нечего
+      }
+      // === 3) ОЖИДАЕМЫЙ ДОХОД — unpaid / draft с остатком ===
+      else if ((o.payment === "unpaid" || o.payment === "draft") && remaining > 0) {
         orderTx.push({
-          id: "order-adv-" + o.id, type: "income", amount: advance, date: orderDate,
-          category: svc + " (аванс)", method: "cash",
-          note: `Аванс по заказу #${(o.id || "").slice(-6)} — ${clientName}`,
-          tag: "advance", source: "order", orderId: o.id,
+          id: "order-pending-" + o.id,
+          type: "pending",                         // ВАЖНО: не "income" — не идёт в общий доход
+          amount: remaining,
+          date: createdDate,
+          category: svc,
+          method: "cash",
+          note: `${o.payment === "draft" ? "Черновик" : "Ожидает оплаты"} • Заказ #${shortId} • ${clientName}`,
+          tag: o.payment === "draft" ? "draft" : "pending",
+          source: "order",
+          source_kind: "pending",
+          orderId: o.id,
+          readonly: true,
         });
       }
     });
@@ -627,14 +751,34 @@ function applyFilter(list, f) {
 }
 
 function summarize(list) {
-  let income = 0, expense = 0;
-  list.forEach(t => { if (t.type === "income") income += t.amount; else expense += t.amount; });
-  return { income, expense, profit: income - expense, count: list.length, avg: income / Math.max(1, list.filter(x => x.type === "income").length), margin: income ? ((income - expense)/income)*100 : 0 };
+  let income = 0, expense = 0, pending = 0, pendingCount = 0;
+  list.forEach(t => {
+    if (t.type === "income") income += t.amount;
+    else if (t.type === "expense") expense += t.amount;
+    else if (t.type === "pending") { pending += t.amount; pendingCount += 1; }
+  });
+  // Считаем операции и средний чек ТОЛЬКО по реальным income (не учитываем pending)
+  const realCount = list.filter(t => t.type === "income" || t.type === "expense").length;
+  const incomeCount = list.filter(t => t.type === "income").length;
+  return {
+    income, expense, pending, pendingCount,
+    profit: income - expense,
+    count: realCount,
+    avg: income / Math.max(1, incomeCount),
+    margin: income ? ((income - expense)/income)*100 : 0
+  };
 }
 
 function categoryTotals(list) {
   const map = new Map();
-  list.forEach(t => { const c = t.category || "Other"; const v = map.get(c) || { income:0, expense:0 }; v[t.type] += t.amount; map.set(c, v); });
+  list.forEach(t => {
+    // pending не учитываем в категориях — это не свершившийся факт
+    if (t.type !== "income" && t.type !== "expense") return;
+    const c = t.category || "Other";
+    const v = map.get(c) || { income:0, expense:0 };
+    v[t.type] += t.amount;
+    map.set(c, v);
+  });
   return map;
 }
 
@@ -815,7 +959,9 @@ function renderKPIs(list){
     kpiAvg: document.getElementById("kpiAvg"),
     kpiProfitSub: document.getElementById("kpiProfitSub"),
     kpiTopIncome: document.getElementById("kpiTopIncome"),
-    kpiTopExpense: document.getElementById("kpiTopExpense")
+    kpiTopExpense: document.getElementById("kpiTopExpense"),
+    kpiPending: document.getElementById("kpiPending"),
+    kpiPendingSub: document.getElementById("kpiPendingSub")
   };
   
   if(els.kpiIncome) els.kpiIncome.textContent = money(s.income);
@@ -824,6 +970,14 @@ function renderKPIs(list){
   if(els.kpiCount) els.kpiCount.textContent = s.count;
   if(els.kpiAvg) els.kpiAvg.textContent = `${translate("avg_check_label")} ${money(s.avg)}`;
   if(els.kpiProfitSub) els.kpiProfitSub.textContent = `${translate("margin_label")} ${s.margin.toFixed(1)}%`;
+
+  // Ожидаемый доход (черновики + неоплаченные заказы)
+  if(els.kpiPending) els.kpiPending.textContent = money(s.pending);
+  if(els.kpiPendingSub) {
+    els.kpiPendingSub.textContent = s.pendingCount > 0
+      ? `${s.pendingCount} ${translate("pending_orders_count") || "заказ(ов) ждут оплаты"}`
+      : (translate("pending_empty") || "Нет ожидающих заказов");
+  }
   
   const top = getTopCategories(list);
   if(els.kpiTopIncome) els.kpiTopIncome.textContent = top.topIncome[0];
@@ -867,8 +1021,8 @@ function confirmDeleteWithPassword() {
         if (tx && tx.orderId) {
           addDeletedOrderId(tx.orderId);
         } else if (typeof pendingDeleteId === "string") {
-          const cleanId = pendingDeleteId.replace(/^order-(paid|adv)-/, "");
-          if (cleanId) addDeletedOrderId(cleanId);
+          const cleanId = pendingDeleteId.replace(/^order-(paid|adv|final|pending)-/, "");
+          if (cleanId && cleanId !== pendingDeleteId) addDeletedOrderId(cleanId);
         }
       }
 
@@ -929,15 +1083,50 @@ function renderTable(list){
   
   tbody.innerHTML = list.map(item => {
     const isOrder = item.source === "order";
+    const isPending = item.type === "pending";
+    const sk = item.source_kind; // "advance" | "final" | "paid" | "pending"
+
+    // Тип-бейдж: для pending — особый
+    let typeBadge;
+    if (isPending) {
+      typeBadge = `<span class="tag-pending"><i class="fa-solid fa-clock"></i> ${translate("pending_type") || "Ожидает"}</span>`;
+    } else if (item.type === "income") {
+      typeBadge = `<span class="tag-income">${translate("income_type")}</span>`;
+    } else {
+      typeBadge = `<span class="tag-expense">${translate("expense_type")}</span>`;
+    }
+
+    // Подпись источника (для авто-импортов из заказа)
+    let srcBadge = "";
+    if (sk === "advance") srcBadge = `<span class="src-badge src-adv"><i class="fa-solid fa-arrow-down"></i> ${translate("src_advance") || "Аванс"}</span>`;
+    else if (sk === "final") srcBadge = `<span class="src-badge src-final"><i class="fa-solid fa-check-double"></i> ${translate("src_final") || "Доплата"}</span>`;
+    else if (sk === "paid") srcBadge = `<span class="src-badge src-paid"><i class="fa-solid fa-check"></i> ${translate("src_paid") || "Оплачен"}</span>`;
+    else if (sk === "pending") srcBadge = `<span class="src-badge src-pending"><i class="fa-solid fa-hourglass-half"></i> ${translate("src_pending") || "Ожидание"}</span>`;
+
+    // Класс суммы
+    let amtClass = "amt-expense";
+    if (isPending) amtClass = "amt-pending";
+    else if (item.type === "income") amtClass = "amt-income";
+
+    // Класс строки
+    const rowCls = [
+      isOrder ? "is-auto-order" : "",
+      isPending ? "is-pending" : "",
+    ].filter(Boolean).join(" ");
+
     const deleteCell = `<button class="icon-btn delete-btn" data-id="${item.id}" data-type="${item.type}" data-note="${escapeHtml(item.note)}" data-amount="${item.amount}" data-category="${escapeHtml(item.category)}" data-source="${item.source || ''}"><i class="fa-solid fa-xmark"></i></button>`;
+
     return `
-    <tr class="${isOrder ? 'is-auto-order' : ''}">
+    <tr class="${rowCls}">
       <td>${item.date}</td>
-      <td><span class="${item.type==='income'?'tag-income':'tag-expense'}">${item.type === 'income' ? translate("income_type") : translate("expense_type")}</span></td>
+      <td>${typeBadge}</td>
       <td>${escapeHtml(item.category)}</td>
-      <td class="amount ${item.type==='income'?'amt-income':'amt-expense'}">${money(item.amount)}</td>
+      <td class="amount ${amtClass}">${money(item.amount)}</td>
       <td>${item.method}</td>
-      <td><div class="note-main">${escapeHtml(item.note)}</div><div class="note-sub">${item.tag ? `#${escapeHtml(item.tag)}` : ''}</div></td>
+      <td>
+        <div class="note-main">${escapeHtml(item.note)}</div>
+        <div class="note-sub">${srcBadge}${item.tag && !srcBadge ? `#${escapeHtml(item.tag)}` : ''}</div>
+      </td>
       <td class="tx-actions">${deleteCell}</td>
     </tr>
   `;
@@ -1148,7 +1337,9 @@ function initUI(){
 
   // Подписки на изменения
   window.addEventListener("storage", e => {
-    if (e.key === "finance_transactions_v2" || e.key === "kus_all_orders") {
+    if (e.key === "finance_transactions_v2"
+        || e.key === "kus_all_orders"
+        || e.key === "kus_finance_deleted_order_ids") {
       TX = loadTransactions();
       renderAll();
     }
@@ -1185,11 +1376,13 @@ function attachBreakdownHandlers() {
   const expenseCard = document.getElementById("expenseCard");
   const topIncomeCard = document.getElementById("topIncomeCard");
   const topExpenseCard = document.getElementById("topExpenseCard");
+  const pendingCard = document.getElementById("pendingCard");
 
   if (incomeCard) incomeCard.addEventListener("click", () => showIncomeDetail());
   if (expenseCard) expenseCard.addEventListener("click", () => showExpenseDetail());
   if (topIncomeCard) topIncomeCard.addEventListener("click", () => showTopDetail("income"));
   if (topExpenseCard) topExpenseCard.addEventListener("click", () => showTopDetail("expense"));
+  if (pendingCard) pendingCard.addEventListener("click", () => showPendingDetail());
 
   // Кнопка "Обнулить" в шапке — удаляет ВСЕ транзакции
   const clearAllBtn = document.getElementById("clearAllBtn");
@@ -1229,7 +1422,7 @@ function attachBreakdownHandlers() {
 }
 
 function closeAllDetails() {
-  ["detailIncome", "detailExpense", "detailTopIncome", "detailTopExpense"].forEach(id => {
+  ["detailIncome", "detailExpense", "detailTopIncome", "detailTopExpense", "detailPending"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
@@ -1295,19 +1488,52 @@ function showExpenseDetail() {
   openDetail("detailExpense");
 }
 
+/* === Ожидаемый доход — детали (full-screen) === */
+function showPendingDetail() {
+  const filtered = applyFilter(TX, getFilters());
+  const pendingTx = filtered.filter(t => t.type === "pending");
+  const total = pendingTx.reduce((s, t) => s + (t.amount || 0), 0);
+
+  const totalEl = document.getElementById("detailPendingTotal");
+  if (totalEl) totalEl.textContent = money(total);
+
+  const countEl = document.getElementById("detailPendingCount");
+  if (countEl) {
+    countEl.textContent = pendingTx.length > 0
+      ? `${pendingTx.length} ${translate("pending_orders_count") || "заказ(ов) ждут оплаты"}`
+      : (translate("pending_empty") || "Нет ожидающих заказов");
+  }
+
+  const listEl = document.getElementById("detailPendingList");
+  if (pendingTx.length === 0) {
+    listEl.innerHTML = `<div class="breakdown-empty">
+      <i class="fa-regular fa-folder-open"></i>
+      <div>${translate("pending_empty") || "Нет ожидающих заказов"}</div>
+    </div>`;
+  } else {
+    const sorted = [...pendingTx].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+    listEl.innerHTML = sorted.map(t => renderBreakdownItem(t, "pending")).join("");
+  }
+  openDetail("detailPending");
+}
+
 function renderBreakdownItem(item, type) {
   const isOrder = item.source === "order";
+
+  // === Если это транзакция из заказа — рисуем полноценный ЧЕК ===
+  if (isOrder) {
+    return renderOrderReceiptCard(item, type);
+  }
+
+  // === Ручная транзакция — компактная карточка как раньше ===
   const iconCls = type === "income" ? "bi-cat-income" : "bi-cat-expense";
-  const icon = type === "income"
-    ? (isOrder ? "fa-broom" : "fa-money-bill-trend-up")
-    : "fa-receipt";
+  const icon = type === "income" ? "fa-money-bill-trend-up" : "fa-receipt";
   const amountCls = type;
   const sign = type === "income" ? "+" : "−";
-
   const deleteBtn = `<button class="breakdown-item-delete" data-id="${escapeHtml(item.id)}" title="Удалить"><i class="fa-solid fa-xmark"></i></button>`;
 
   return `
-    <div class="breakdown-item ${isOrder ? 'is-auto-order' : ''}">
+    <div class="breakdown-item">
       <div class="breakdown-item-icon ${iconCls}"><i class="fa-solid ${icon}"></i></div>
       <div class="breakdown-item-main">
         <div class="breakdown-item-cat">${escapeHtml(item.category || "—")}</div>
@@ -1325,10 +1551,165 @@ function renderBreakdownItem(item, type) {
   `;
 }
 
-// Делегирование клика на кнопках удаления
+/* =========================================================
+   ЧЕК-КАРТОЧКА для транзакции из заказа
+   ---------------------------------------------------------
+   Показывает полные данные заказа: услуга, клиент, телефон,
+   адрес, цена, аванс, остаток, статус оплаты.
+========================================================= */
+function renderOrderReceiptCard(item, type) {
+  // Находим исходный заказ
+  const order = (typeof getAllOrders === "function")
+    ? (getAllOrders() || []).find(o => o.id === item.orderId)
+    : null;
+
+  const sk = item.source_kind; // "advance" | "final" | "paid" | "pending"
+
+  // Заголовок-плашка по типу события
+  let kindLabel, kindIcon, kindCls, sign;
+  if (sk === "advance") {
+    kindLabel = translate("src_advance") || "Аванс";
+    kindIcon = "fa-arrow-down";
+    kindCls = "rc-kind-advance";
+    sign = "+";
+  } else if (sk === "final") {
+    kindLabel = translate("src_final") || "Доплата";
+    kindIcon = "fa-check-double";
+    kindCls = "rc-kind-final";
+    sign = "+";
+  } else if (sk === "paid") {
+    kindLabel = translate("src_paid") || "Оплачен";
+    kindIcon = "fa-check";
+    kindCls = "rc-kind-paid";
+    sign = "+";
+  } else if (sk === "pending") {
+    kindLabel = translate("src_pending") || "Ожидание";
+    kindIcon = "fa-hourglass-half";
+    kindCls = "rc-kind-pending";
+    sign = "";
+  } else {
+    kindLabel = translate("income_type");
+    kindIcon = "fa-money-bill";
+    kindCls = "rc-kind-final";
+    sign = "+";
+  }
+
+  const amountCls = type === "pending" ? "pending" : type;
+
+  // Данные клиента/услуги — берём из заказа если есть, иначе из note
+  let serviceTitle, clientName, clientPhone, clientAddress, price, advance, remaining, orderDate, orderTime, shortId;
+  if (order) {
+    serviceTitle = order.serviceTitleRu || order.serviceTitle || order.serviceTitleUz || order.serviceTitleEn || item.category || "Услуга";
+    clientName = order.name || "—";
+    clientPhone = order.phone || "";
+    clientAddress = order.address || "";
+    price = Number(order.price || order.total || 0);
+    advance = Number(order.advance || 0);
+    remaining = Math.max(0, price - advance);
+    orderDate = order.date || item.date;
+    orderTime = order.time || "";
+    shortId = (order.id || item.orderId || "").slice(-6);
+  } else {
+    // Заказ удалён — но транзакция осталась. Покажем минимум из note
+    serviceTitle = item.category || "Услуга";
+    clientName = "—";
+    clientPhone = "";
+    clientAddress = "";
+    price = item.amount;
+    advance = sk === "advance" ? item.amount : 0;
+    remaining = 0;
+    orderDate = item.date;
+    orderTime = "";
+    shortId = (item.orderId || "").slice(-6);
+  }
+
+  const deleteBtn = `<button class="rc-delete" data-id="${escapeHtml(item.id)}" title="${escapeHtml(translate("delete") || "Удалить")}"><i class="fa-solid fa-xmark"></i></button>`;
+
+  // Лейблы (из переводов или fallback)
+  const lblPrice = translate("rc_price") || "Цена";
+  const lblAdvance = translate("rc_advance") || "Аванс";
+  const lblRemaining = translate("rc_remaining") || "Остаток";
+  const lblClient = translate("rc_client") || "Клиент";
+  const lblOrder = translate("rc_order") || "Заказ";
+
+  // Иконка услуги — попробуем взять из заказа (если есть svc.icon у того)
+  const svcIcon = "fa-broom";
+
+  // Если заказ удалён — спец-метка
+  const ghostBadge = !order
+    ? `<span class="rc-ghost-badge" title="${escapeHtml(translate('rc_order_deleted') || 'Заказ удалён, транзакция сохранена')}"><i class="fa-solid fa-link-slash"></i></span>`
+    : "";
+
+  return `
+    <div class="rc-card ${kindCls}">
+      <div class="rc-card-head">
+        <div class="rc-card-head-left">
+          <span class="rc-kind-badge"><i class="fa-solid ${kindIcon}"></i> ${escapeHtml(kindLabel)}</span>
+          <span class="rc-order-id">#${escapeHtml(shortId)}</span>
+          ${ghostBadge}
+        </div>
+        <div class="rc-card-head-right">
+          <div class="rc-amount ${amountCls}">${sign}${money(item.amount)}</div>
+          ${deleteBtn}
+        </div>
+      </div>
+
+      <div class="rc-card-body">
+        <div class="rc-service-row">
+          <div class="rc-service-icon"><i class="fa-solid ${svcIcon}"></i></div>
+          <div class="rc-service-name">${escapeHtml(serviceTitle)}</div>
+        </div>
+
+        <div class="rc-client-grid">
+          <div class="rc-info-line">
+            <i class="fa-solid fa-user"></i>
+            <span class="rc-info-label">${escapeHtml(lblClient)}:</span>
+            <span class="rc-info-val">${escapeHtml(clientName)}</span>
+          </div>
+          ${clientPhone ? `
+          <div class="rc-info-line">
+            <i class="fa-solid fa-phone"></i>
+            <a href="tel:${escapeHtml(clientPhone)}" class="rc-info-val rc-phone-link" onclick="event.stopPropagation()">${escapeHtml(clientPhone)}</a>
+          </div>` : ""}
+          ${clientAddress ? `
+          <div class="rc-info-line rc-info-line-full">
+            <i class="fa-solid fa-location-dot"></i>
+            <span class="rc-info-val rc-address">${escapeHtml(clientAddress)}</span>
+          </div>` : ""}
+          <div class="rc-info-line">
+            <i class="fa-regular fa-calendar"></i>
+            <span class="rc-info-val">${escapeHtml(orderDate)}${orderTime ? " · " + escapeHtml(orderTime) : ""}</span>
+          </div>
+        </div>
+
+        <div class="rc-money-grid">
+          <div class="rc-money-cell">
+            <div class="rc-money-label">${escapeHtml(lblPrice)}</div>
+            <div class="rc-money-val">${money(price)}</div>
+          </div>
+          <div class="rc-money-cell">
+            <div class="rc-money-label">${escapeHtml(lblAdvance)}</div>
+            <div class="rc-money-val rc-money-adv">${money(advance)}</div>
+          </div>
+          <div class="rc-money-cell">
+            <div class="rc-money-label">${escapeHtml(lblRemaining)}</div>
+            <div class="rc-money-val ${remaining > 0 ? 'rc-money-rem' : 'rc-money-zero'}">${money(remaining)}</div>
+          </div>
+        </div>
+
+        <div class="rc-foot">
+          <span class="rc-foot-date"><i class="fa-regular fa-clock"></i> ${escapeHtml(translate("rc_tx_date") || "Дата операции")}: <strong>${escapeHtml(item.date)}</strong></span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Делегирование клика на кнопках удаления (старая компактная карточка + новая чек-карточка)
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".breakdown-item-delete[data-id]");
+  const btn = e.target.closest(".breakdown-item-delete[data-id], .rc-delete[data-id]");
   if (!btn) return;
+  e.stopPropagation();
   const id = btn.dataset.id;
   const item = TX.find(t => String(t.id) === String(id));
   if (!item) return;
@@ -1477,6 +1858,41 @@ function renderNavbar(session) {
     });
   }
 }
+
+
+/* =========================================================
+   МОБИЛЬНЫЙ САЙДБАР — выезжающее меню (бургер)
+========================================================= */
+function accToggleSidebar() {
+  document.body.classList.toggle("sidebar-open");
+  var icon = document.getElementById("accBurgerIcon");
+  if (icon) {
+    var open = document.body.classList.contains("sidebar-open");
+    icon.className = open ? "fa-solid fa-xmark" : "fa-solid fa-bars";
+  }
+}
+function accCloseSidebar() {
+  document.body.classList.remove("sidebar-open");
+  var icon = document.getElementById("accBurgerIcon");
+  if (icon) icon.className = "fa-solid fa-bars";
+}
+/* На мобиле: клик по пункту внутри сайдбара (кнопка/ссылка) закрывает меню */
+document.addEventListener("DOMContentLoaded", function () {
+  var sidebar = document.querySelector(".acc-sidebar");
+  if (!sidebar) return;
+  sidebar.addEventListener("click", function (e) {
+    if (window.innerWidth > 1100) return; // только на мобиле
+    var el = e.target.closest("a, button");
+    if (el && !el.closest(".acc-side-lang")) {
+      // не закрываем при переключении языка, остальное закрывает
+      setTimeout(accCloseSidebar, 150);
+    }
+  });
+  // Esc закрывает меню
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") accCloseSidebar();
+  });
+});
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _accountantBoot);
 else _accountantBoot();

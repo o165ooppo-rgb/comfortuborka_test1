@@ -90,6 +90,236 @@ function saveSettings(patch, byLogin) {
 }
 
 /* =========================================================
+   ЛОГОТИП КОМПАНИИ
+   ---------------------------------------------------------
+   Хранится в settings.logoBase64 (Data URL картинки).
+   Если задан — заменяет иконку метлы во всех брендах.
+========================================================= */
+function getCompanyLogo() {
+  try {
+    const s = getSettings();
+    return s.logoBase64 || null;
+  } catch { return null; }
+}
+
+function saveCompanyLogo(base64DataUrl, byLogin) {
+  saveSettings({ logoBase64: base64DataUrl }, byLogin);
+}
+
+function removeCompanyLogo(byLogin) {
+  const cur = getSettings();
+  delete cur.logoBase64;
+  localStorage.setItem(AUTH_KEYS.SETTINGS, JSON.stringify(cur));
+  addLog(byLogin || "system", "Логотип компании удалён");
+}
+
+/* =========================================================
+   QR-КОД ДЛЯ ЧЕКОВ
+   ---------------------------------------------------------
+   Хранится в настройках:
+   - receiptQrUrl    : ссылка/текст, из которого генерируется QR
+   - receiptQrImage  : (опционально) загруженная картинка QR (Data URL)
+   - receiptQrCaption: подпись под QR (например "Сканируйте для отзыва")
+   Приоритет при показе: картинка (если загружена) > сгенерированный из ссылки.
+========================================================= */
+function getReceiptQr() {
+  try {
+    const s = getSettings();
+    return {
+      url: s.receiptQrUrl || "",
+      image: s.receiptQrImage || "",
+      caption: s.receiptQrCaption || "",
+    };
+  } catch {
+    return { url: "", image: "", caption: "" };
+  }
+}
+
+function saveReceiptQr(data, byLogin) {
+  const patch = {};
+  if (data.url != null) patch.receiptQrUrl = data.url;
+  if (data.image != null) patch.receiptQrImage = data.image;
+  if (data.caption != null) patch.receiptQrCaption = data.caption;
+  saveSettings(patch, byLogin);
+  addLog(byLogin || "system", "QR-код чека обновлён");
+}
+
+function removeReceiptQr(byLogin) {
+  const cur = getSettings();
+  delete cur.receiptQrUrl;
+  delete cur.receiptQrImage;
+  delete cur.receiptQrCaption;
+  localStorage.setItem(AUTH_KEYS.SETTINGS, JSON.stringify(cur));
+  addLog(byLogin || "system", "QR-код чека удалён");
+}
+
+/**
+ * Возвращает HTML блока QR для вставки внизу чека.
+ * Если есть загруженная картинка — показывает её.
+ * Если есть только ссылка — рисует QR через встроенный генератор (window.KusQR).
+ * Если ничего нет — возвращает пустую строку.
+ */
+function buildReceiptQrHtml() {
+  const qr = getReceiptQr();
+  let imgSrc = "";
+
+  if (qr.image) {
+    imgSrc = qr.image;
+  } else if (qr.url && typeof window !== "undefined" && window.KusQR) {
+    try {
+      imgSrc = window.KusQR.toDataURL(qr.url, { size: 220, margin: 2 });
+    } catch (e) {
+      console.warn("[QR] generation failed:", e);
+    }
+  }
+
+  if (!imgSrc) return "";
+
+  const caption = qr.caption || "";
+  return `
+    <div class="receipt-qr">
+      <div class="receipt-qr-divider"></div>
+      <img class="receipt-qr-img" src="${imgSrc}" alt="QR" />
+      ${caption ? `<div class="receipt-qr-caption">${escapeHtmlSafe(caption)}</div>` : ""}
+    </div>
+  `;
+}
+
+/* Локальный escape (auth.js может загружаться без app.js) */
+function escapeHtmlSafe(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/**
+ * Заменяет все элементы <i class="fa-broom"></i> (в шапке/брендах) на тег <img>
+ * с логотипом из настроек. Вызывать после рендера шапки и после изменений настроек.
+ * Дополнительно: меняет favicon страницы.
+ */
+function applyCompanyLogo() {
+  const logo = getCompanyLogo();
+  // 1) Бренды в шапке — заменить .brand-mark / .brand-text / .dir-brand содержимое (иконка)
+  document.querySelectorAll('[data-brand-icon], .brand-text > i.fa-broom, .brand-mark > i.fa-broom, .dir-brand > i.fa-shield-halved, .login-brand .brand-mark > i.fa-broom').forEach(icon => {
+    const parent = icon.parentElement;
+    if (!parent) return;
+    // Если уже подменили — убираем старый img
+    const existingImg = parent.querySelector('.brand-mark-img');
+    if (existingImg) existingImg.remove();
+
+    if (logo) {
+      icon.style.display = 'none';
+      const img = document.createElement('img');
+      img.src = logo;
+      img.alt = 'logo';
+      img.className = 'brand-mark-img';
+      parent.insertBefore(img, icon);
+    } else {
+      icon.style.display = '';
+    }
+  });
+  // 2) Favicon — подменяем если есть логотип
+  if (logo) {
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = logo;
+  }
+}
+
+/* =========================================================
+   ПРАВА РОЛЕЙ
+   ---------------------------------------------------------
+   Централизованная проверка что разрешено каждой роли.
+========================================================= */
+const ROLE_PERMISSIONS = {
+  director: {
+    canCreateOrder: true,
+    canSeeFinance: true,
+    canEditOrder: true,
+    canDeleteOrder: true,
+    canSeePrice: true,
+    canManageUsers: true,
+    canManageServices: true,
+    canManageSettings: true,
+    canAccessDirectorPanel: true,
+    canAccessAccountant: true,
+    canAccessArchive: true,
+    canTakeOrder: false,
+  },
+  accountant: {
+    canCreateOrder: true,
+    canSeeFinance: true,
+    canEditOrder: true,
+    canDeleteOrder: false,
+    canSeePrice: true,
+    canManageUsers: false,
+    canManageServices: false,
+    canManageSettings: false,
+    canAccessDirectorPanel: false,
+    canAccessAccountant: true,
+    canAccessArchive: true,
+    canTakeOrder: false,
+  },
+  supervisor: {
+    canCreateOrder: true,
+    canSeeFinance: false,
+    canEditOrder: true,
+    canDeleteOrder: false,
+    canSeePrice: true,
+    canManageUsers: false,
+    canManageServices: false,
+    canManageSettings: false,
+    canAccessDirectorPanel: false,
+    canAccessAccountant: false,
+    canAccessArchive: true,
+    canTakeOrder: true,
+  },
+  worker: {
+    canCreateOrder: false,
+    canSeeFinance: false,
+    canEditOrder: false,
+    canDeleteOrder: false,
+    canSeePrice: false,
+    canManageUsers: false,
+    canManageServices: false,
+    canManageSettings: false,
+    canAccessDirectorPanel: false,
+    canAccessAccountant: false,
+    canAccessArchive: false,
+    canTakeOrder: true,
+  },
+};
+
+function rolePerm(role, key) {
+  const p = ROLE_PERMISSIONS[role];
+  return !!(p && p[key]);
+}
+
+function canRole(session, key) {
+  if (!session) return false;
+  return rolePerm(session.role, key);
+}
+
+/* =========================================================
+   ЗАГРУЖЕННОСТЬ ДНЯ — сколько заказов уже создано на дату
+========================================================= */
+function getDayLoadThreshold() {
+  const s = getSettings();
+  return Number(s.dayLoadThreshold) || 4;
+}
+
+function countOrdersOnDate(dateStr) {
+  if (!dateStr) return 0;
+  try {
+    const orders = getAllOrders() || [];
+    return orders.filter(o => (o.date || "") === dateStr).length;
+  } catch { return 0; }
+}
+
+/* =========================================================
    УСЛУГИ — редактируемые
 ========================================================= */
 function getServices() {
@@ -164,14 +394,24 @@ async function createUser(userData, createdByLogin) {
   const hashedPw = window.hashPassword
     ? await window.hashPassword(userData.password)
     : userData.password;
+  const role = userData.role || "worker";
+  // Директор создаёт ТОЛЬКО логин+пароль+роль.
+  // Остальные данные (имя, телефон, адрес, фото) сотрудник заполнит сам при первом входе.
+  // Директорский аккаунт считаем сразу заполненным (его не заставляем проходить анкету).
+  const isDirector = role === "director";
   const newUser = {
     id: "u_" + Date.now(),
     login: userData.login.trim(),
     password: hashedPw,
     passwordHashed: !!window.hashPassword,
-    fullName: userData.fullName || userData.login,
-    role: userData.role || "worker",
+    fullName: (userData.fullName && userData.fullName.trim()) || userData.login.trim(),
+    role: role,
     phone: userData.phone || "",
+    address: "",
+    avatar: "",            // Data URL фото
+    lat: null,
+    lng: null,
+    profileComplete: isDirector ? true : false,   // ← сотрудник заполнит при первом входе
     createdAt: new Date().toISOString(),
     createdBy: createdByLogin,
   };
@@ -179,6 +419,49 @@ async function createUser(userData, createdByLogin) {
   saveUsers(users);
   addLog(createdByLogin, `Создан аккаунт: ${newUser.login} (${roleLabel(newUser.role)})`);
   return { ok: true, user: newUser };
+}
+
+/* =========================================================
+   ПРОФИЛЬ СОТРУДНИКА — заполняется при первом входе
+========================================================= */
+function getUserByLogin(login) {
+  return getUsers().find(u => u.login === login) || null;
+}
+
+function updateUserProfile(login, profile, byLogin) {
+  const users = getUsers();
+  const u = users.find(x => x.login === login);
+  if (!u) return { ok: false, error: "Пользователь не найден" };
+
+  if (profile.fullName != null) u.fullName = profile.fullName.trim();
+  if (profile.phone != null) u.phone = profile.phone.trim();
+  if (profile.address != null) u.address = profile.address.trim();
+  if (profile.avatar != null) u.avatar = profile.avatar;
+  if (profile.lat != null) u.lat = profile.lat;
+  if (profile.lng != null) u.lng = profile.lng;
+  u.profileComplete = true;
+  u.profileCompletedAt = new Date().toISOString();
+
+  saveUsers(users);
+
+  // Обновляем сессию (имя могло поменяться)
+  const s = getSession();
+  if (s && s.login === login) {
+    s.fullName = u.fullName;
+    s.profileComplete = true;
+    localStorage.setItem(AUTH_KEYS.SESSION, JSON.stringify(s));
+  }
+
+  addLog(byLogin || login, `Заполнен профиль: ${login}`);
+  return { ok: true, user: u };
+}
+
+function isProfileComplete(login) {
+  const u = getUserByLogin(login);
+  if (!u) return true; // на всякий случай не блокируем
+  // Директор всегда считается заполненным
+  if (u.role === "director") return true;
+  return u.profileComplete === true;
 }
 
 function deleteUser(login, byLogin) {
@@ -208,7 +491,7 @@ async function updateUserPassword(login, newPassword, byLogin) {
 }
 
 function roleLabel(role) {
-  const map = { director: "Директор", accountant: "Бухгалтер", worker: "Сотрудник" };
+  const map = { director: "Директор", accountant: "Бухгалтер", worker: "Сотрудник", supervisor: "Супервайзер" };
   return map[role] || role;
 }
 
@@ -239,16 +522,18 @@ async function login(loginStr, password) {
 
   if (!matched) return { ok: false, error: "Неверный логин или пароль" };
 
+  const profileComplete = (u.role === "director") ? true : (u.profileComplete === true);
   const session = {
     login: u.login,
     role: u.role,
     fullName: u.fullName,
+    profileComplete: profileComplete,
     loginAt: new Date().toISOString(),
   };
   localStorage.setItem(AUTH_KEYS.SESSION, JSON.stringify(session));
   updateHeartbeat(u.login);
   addLog(u.login, `Вход в систему (${roleLabel(u.role)})`);
-  return { ok: true, session };
+  return { ok: true, session, needsProfile: !profileComplete };
 }
 
 /* Проверка пароля без создания новой сессии — для подтверждения опасных действий */
@@ -287,11 +572,17 @@ function homePageForRole(role) {
   if (role === "director") return "director.html";
   if (role === "worker") return "worker.html";
   if (role === "accountant") return "accountant.html";
+  if (role === "supervisor") return "index.html";
   return "index.html";
 }
 
 function redirectByRole(session) {
   if (!session) { window.location.href = "login.html"; return; }
+  // Если профиль ещё не заполнен — сначала анкета
+  if (session.role !== "director" && session.profileComplete !== true && !isProfileComplete(session.login)) {
+    window.location.href = "profile.html";
+    return;
+  }
   window.location.href = homePageForRole(session.role);
 }
 
@@ -299,6 +590,12 @@ function requireAuth(allowedRoles) {
   const s = getSession();
   if (!s) {
     window.location.href = "login.html";
+    return null;
+  }
+  // Если профиль не заполнен — гоним на анкету (но не зацикливаемся на самой profile.html)
+  const onProfilePage = /profile\.html$/i.test(window.location.pathname);
+  if (!onProfilePage && s.role !== "director" && s.profileComplete !== true && !isProfileComplete(s.login)) {
+    window.location.href = "profile.html";
     return null;
   }
   if (allowedRoles && !allowedRoles.includes(s.role)) {
@@ -323,6 +620,14 @@ async function bootstrapApp(opts, callback) {
   const session = requireAuth(opts.allowedRoles);
   if (!session) return;
   callback(session);
+  // Применяем логотип после рендера шапки колбэком
+  try { applyCompanyLogo(); } catch (e) { /* noop */ }
+  // Перерисовываем логотип при изменении настроек (через firebase sync)
+  window.addEventListener("storage", e => {
+    if (e.key === "kus_settings") {
+      try { applyCompanyLogo(); } catch (_) {}
+    }
+  });
 }
 
 /* =========================================================
@@ -509,15 +814,34 @@ function getAllOrders() {
 
 function saveOrder(order, byLogin) {
   const orders = getAllOrders();
+  const nowISO = new Date().toISOString();
   const newOrder = {
     id: order.id || ("ord_" + Date.now()),
     ...order,
     payment: order.payment || "unpaid",
-    createdAt: order.createdAt || new Date().toISOString(),
+    createdAt: order.createdAt || nowISO,
     createdBy: byLogin,
     takenBy: order.takenBy || null,
   };
   const idx = orders.findIndex(o => o.id === newOrder.id);
+
+  // === Фиксируем даты финансовых событий для бухгалтерии ===
+  // Дата получения аванса — фиксируется при первом создании если advance > 0
+  if (idx === -1) {
+    if ((newOrder.advance || 0) > 0 && !newOrder.advanceAt) {
+      newOrder.advanceAt = nowISO;
+    }
+    // Если сразу создан как paid — фиксируем дату оплаты
+    if (newOrder.payment === "paid" && !newOrder.paidAt) {
+      newOrder.paidAt = nowISO;
+    }
+  } else {
+    // При обновлении сохраняем уже зафиксированные даты
+    const prev = orders[idx];
+    newOrder.advanceAt = newOrder.advanceAt || prev.advanceAt || ((newOrder.advance || 0) > 0 ? nowISO : null);
+    newOrder.paidAt = newOrder.paidAt || prev.paidAt || (newOrder.payment === "paid" ? nowISO : null);
+  }
+
   if (idx >= 0) orders[idx] = newOrder;
   else orders.unshift(newOrder);
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
@@ -532,11 +856,34 @@ function updateOrderPayment(orderId, payment, byLogin) {
   if (!o) return;
   const old = o.payment;
   o.payment = payment;
+  // Если только что переключили в "оплачен" — фиксируем дату фактической оплаты
+  if (payment === "paid" && !o.paidAt) {
+    o.paidAt = new Date().toISOString();
+  }
+  // Если откатили обратно (paid → unpaid) — сбрасываем дату оплаты,
+  // чтобы при следующем "paid" она встала на новый момент
+  if (payment !== "paid" && o.paidAt) {
+    o.paidAt = null;
+  }
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
   addLog(byLogin, `Заказ #${orderId.slice(-6)}: статус оплаты ${paymentLabel(old)} → ${paymentLabel(payment)}`);
 }
 
-function takeOrder(orderId, workerLogin) {
+/* =========================================================
+   УДАЛЕНИЕ ЗАКАЗА — также чистит связанные транзакции в бухгалтерии
+========================================================= */
+function deleteOrder(orderId, byLogin) {
+  const orders = getAllOrders();
+  const target = orders.find(o => o.id === orderId);
+  if (!target) return { ok: false, error: "Заказ не найден" };
+  const filtered = orders.filter(o => o.id !== orderId);
+  localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(filtered));
+  addLog(byLogin || "director", `Удалён заказ #${orderId.slice(-6)} (${target.name || ""})`);
+  return { ok: true };
+}
+
+function takeOrder(orderId, workerLogin, opts) {
+  opts = opts || {};
   const orders = getAllOrders();
   const o = orders.find(x => x.id === orderId);
   if (!o) return { ok: false, error: "Заказ не найден" };
@@ -545,9 +892,62 @@ function takeOrder(orderId, workerLogin) {
   }
   o.takenBy = workerLogin;
   o.takenAt = new Date().toISOString();
+  // Когда сотрудник планирует фактически начать работу
+  if (opts.startDate) o.startDate = opts.startDate;
+  if (opts.startTime) o.startTime = opts.startTime;
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
-  addLog(workerLogin, `Взял(а) заказ #${orderId.slice(-6)}`);
+  const startInfo = opts.startDate ? ` (начало: ${opts.startDate}${opts.startTime ? " " + opts.startTime : ""})` : "";
+  addLog(workerLogin, `Взял(а) заказ #${orderId.slice(-6)}${startInfo}`);
   return { ok: true };
+}
+
+/* =========================================================
+   РЕДАКТИРОВАНИЕ ЗАКАЗА — для архива
+   ---------------------------------------------------------
+   Принимает patch (объект с обновлёнными полями) и сохраняет
+   историю изменений в _editHistory.
+========================================================= */
+function updateOrder(orderId, patch, byLogin) {
+  const orders = getAllOrders();
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return { ok: false, error: "Заказ не найден" };
+
+  // Поля разрешённые к редактированию
+  const allowed = ["name", "phone", "address", "date", "time", "price", "advance", "payment"];
+  const changes = [];
+  allowed.forEach(k => {
+    if (Object.prototype.hasOwnProperty.call(patch, k) && patch[k] !== o[k]) {
+      changes.push(`${k}: ${o[k]} → ${patch[k]}`);
+      o[k] = patch[k];
+    }
+  });
+
+  if (changes.length === 0) return { ok: true, changed: false };
+
+  // Если изменился статус оплаты — обработка paidAt
+  if (changes.some(c => c.startsWith("payment:"))) {
+    if (o.payment === "paid" && !o.paidAt) o.paidAt = new Date().toISOString();
+    if (o.payment !== "paid") o.paidAt = null;
+  }
+  // Если изменился аванс с 0 — добавим advanceAt
+  if (changes.some(c => c.startsWith("advance:")) && (o.advance || 0) > 0 && !o.advanceAt) {
+    o.advanceAt = new Date().toISOString();
+  }
+  // Пересчёт remaining
+  o.remaining = Math.max(0, (Number(o.price) || 0) - (Number(o.advance) || 0));
+  o.total = Number(o.price) || 0;
+
+  // История правок
+  if (!Array.isArray(o._editHistory)) o._editHistory = [];
+  o._editHistory.push({
+    by: byLogin,
+    at: new Date().toISOString(),
+    changes: changes,
+  });
+
+  localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
+  addLog(byLogin || "system", `Отредактирован заказ #${orderId.slice(-6)}: ${changes.join("; ")}`);
+  return { ok: true, changed: true };
 }
 
 function paymentLabel(p) {

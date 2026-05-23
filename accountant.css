@@ -6,8 +6,6 @@
 
 body.accountant-body {
   margin: 0;
-  display: grid;
-  grid-template-columns: 280px 1fr;
   min-height: 100vh;
   font-family: 'Manrope', sans-serif;
   color: var(--ink);
@@ -27,12 +25,17 @@ body.accountant-body {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  position: sticky;
+  /* Прилипает к левому краю, всегда на месте */
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 280px;
   height: 100vh;
+  /* Внутренний скролл если содержимое не влезает (фикс проблемы на Mac) */
   overflow-y: auto;
-  position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  z-index: 100;
   animation: accSlideRight .5s ease-out both;
 }
 @keyframes accSlideRight {
@@ -40,20 +43,29 @@ body.accountant-body {
   to   { transform: translateX(0); opacity: 1; }
 }
 
+/* Тонкий красивый скроллбар внутри сайдбара */
+.acc-sidebar::-webkit-scrollbar { width: 6px; }
+.acc-sidebar::-webkit-scrollbar-track { background: transparent; }
+.acc-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .2);
+  border-radius: 3px;
+}
+.acc-sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .35); }
+
 .acc-sidebar::before {
   content: "";
   position: absolute;
-  top: -100px; right: -80px;
-  width: 240px; height: 240px;
-  background: radial-gradient(circle, rgba(255, 214, 10, .45), transparent 70%);
+  top: 0; right: 0;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle at 70% 30%, rgba(255, 214, 10, .35), transparent 70%);
   pointer-events: none;
 }
 .acc-sidebar::after {
   content: "";
   position: absolute;
-  bottom: -80px; left: -60px;
-  width: 200px; height: 200px;
-  background: radial-gradient(circle, rgba(255, 214, 10, .25), transparent 70%);
+  bottom: 0; left: 0;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle at 30% 70%, rgba(255, 214, 10, .2), transparent 70%);
   pointer-events: none;
 }
 .acc-sidebar > * { position: relative; z-index: 1; }
@@ -351,6 +363,7 @@ select.field option { background: #0a1230; color: #fff; }
    ОСНОВНОЙ КОНТЕНТ
 ========================================================= */
 .acc-main {
+  margin-left: 280px;
   padding: 26px 30px 60px;
   display: flex;
   flex-direction: column;
@@ -358,6 +371,10 @@ select.field option { background: #0a1230; color: #fff; }
   animation: accFadeUp .5s ease;
   min-width: 0;
   overflow-x: hidden;
+}
+/* Детальные страницы тоже сдвигаются вправо от фиксированного сайдбара */
+.acc-detail {
+  margin-left: 280px;
 }
 @keyframes accFadeUp {
   from { opacity: 0; transform: translateY(12px); }
@@ -1193,12 +1210,38 @@ select.field option { background: #0a1230; color: #fff; }
    АДАПТИВ
 ========================================================= */
 @media (max-width: 1100px) {
-  body.accountant-body { grid-template-columns: 1fr; }
+  /* Сайдбар превращается в выезжающее меню слева */
   .acc-sidebar {
-    position: static;
-    height: auto;
+    transform: translateX(-100%);
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+    box-shadow: 4px 0 30px rgba(0, 0, 0, .3);
     animation: none;
   }
+  /* Когда открыт — выезжает */
+  body.sidebar-open .acc-sidebar {
+    transform: translateX(0);
+  }
+  /* Контент занимает всю ширину (сайдбар поверх, не двигает контент) */
+  .acc-main, .acc-detail {
+    margin-left: 0;
+  }
+  /* Затемнение фона когда меню открыто */
+  .acc-sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
+    z-index: 99;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  body.sidebar-open .acc-sidebar-overlay {
+    display: block;
+    opacity: 1;
+  }
+  /* Бургер-кнопка появляется */
+  .acc-burger { display: inline-flex !important; }
+
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .chart-grid { grid-template-columns: 1fr; }
   .chart-compact, .chart-compact-donut { height: 240px; }
@@ -1262,4 +1305,516 @@ select.field option { background: #0a1230; color: #fff; }
 @media (max-width: 600px) {
   .clear-all-btn span { display: none; }
   .clear-all-btn { padding: 10px 12px; }
+}
+
+/* ============================================================
+   FINANCE × ORDERS INTEGRATION — стили для интеграции с заказами
+   Добавлены: KPI "Ожидаемый доход", pending транзакции в таблице,
+   бейджи источника (аванс / доплата / оплачен / ожидание)
+============================================================ */
+
+/* KPI плитка "Ожидаемый доход" */
+.kpi.kpi-pending {
+  position: relative;
+  overflow: hidden;
+}
+.kpi.kpi-pending::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(245, 158, 11, .08), rgba(245, 158, 11, 0) 60%);
+  pointer-events: none;
+}
+.kpi.kpi-pending .kpi-label i { color: #f59e0b; }
+.kpi.kpi-pending .kpi-value { color: #f59e0b; }
+.kpi.kpi-pending .kpi-sub {
+  font-weight: 600;
+  color: #92723a;
+}
+
+/* Бейдж "Ожидает" в столбце Тип */
+.tag-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(245, 158, 11, .12);
+  color: #b07515;
+  border: 1px solid rgba(245, 158, 11, .25);
+  white-space: nowrap;
+}
+.tag-pending i { font-size: 9px; }
+
+/* Сумма pending — приглушённая */
+.amount.amt-pending {
+  color: #b07515 !important;
+  font-style: italic;
+  opacity: .85;
+}
+
+/* Строка таблицы — pending: лёгкий фон */
+tr.is-pending {
+  background: rgba(245, 158, 11, .04);
+}
+tr.is-pending:hover {
+  background: rgba(245, 158, 11, .08);
+}
+tr.is-pending td {
+  border-bottom-color: rgba(245, 158, 11, .15);
+}
+
+/* Бейджи источника транзакции */
+.src-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.src-badge i { font-size: 8px; }
+
+.src-badge.src-adv {
+  background: rgba(14, 165, 233, .12);
+  color: #0a6fa1;
+  border: 1px solid rgba(14, 165, 233, .25);
+}
+.src-badge.src-final {
+  background: rgba(0, 184, 122, .12);
+  color: #00875c;
+  border: 1px solid rgba(0, 184, 122, .25);
+}
+.src-badge.src-paid {
+  background: rgba(0, 184, 122, .12);
+  color: #00875c;
+  border: 1px solid rgba(0, 184, 122, .25);
+}
+.src-badge.src-pending {
+  background: rgba(245, 158, 11, .12);
+  color: #b07515;
+  border: 1px solid rgba(245, 158, 11, .25);
+}
+
+/* Авто-импортированные строки — лёгкий синий маркер слева */
+tr.is-auto-order td:first-child {
+  position: relative;
+  padding-left: 16px !important;
+}
+tr.is-auto-order td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 3px;
+  height: 60%;
+  background: linear-gradient(180deg, #1e40ff, #00b87a);
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+/* На мобилке скрываем подписи источника, оставляем только цвет строки */
+@media (max-width: 600px) {
+  .src-badge { font-size: 9px; padding: 1px 5px; }
+}
+
+/* ============================================================
+   ORDER RECEIPT CARDS — чек-карточки для транзакций из заказов
+   Заменяют простую breakdown-item для записей с source === "order"
+============================================================ */
+
+.rc-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  position: relative;
+}
+.rc-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--blue);
+  transition: width .25s;
+}
+.rc-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(10, 18, 48, .08);
+  border-color: rgba(30, 64, 255, .25);
+}
+.rc-card:hover::before { width: 6px; }
+
+/* Цветовая полоска по типу */
+.rc-card.rc-kind-advance::before { background: linear-gradient(180deg, #0ea5e9, #06b6d4); }
+.rc-card.rc-kind-final::before   { background: linear-gradient(180deg, #00b87a, #00d094); }
+.rc-card.rc-kind-paid::before    { background: linear-gradient(180deg, #00b87a, #00d094); }
+.rc-card.rc-kind-pending::before { background: linear-gradient(180deg, #f59e0b, #fbbf24); }
+
+/* === Шапка карточки === */
+.rc-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 12px 22px;
+  border-bottom: 1px dashed var(--line);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rc-card-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.rc-card-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.rc-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rc-kind-badge i { font-size: 10px; }
+
+.rc-kind-advance .rc-kind-badge {
+  background: rgba(14, 165, 233, .12);
+  color: #0a6fa1;
+  border: 1px solid rgba(14, 165, 233, .3);
+}
+.rc-kind-final .rc-kind-badge,
+.rc-kind-paid .rc-kind-badge {
+  background: rgba(0, 184, 122, .12);
+  color: #00875c;
+  border: 1px solid rgba(0, 184, 122, .3);
+}
+.rc-kind-pending .rc-kind-badge {
+  background: rgba(245, 158, 11, .12);
+  color: #b07515;
+  border: 1px solid rgba(245, 158, 11, .3);
+}
+
+.rc-order-id {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 4px 9px;
+  background: rgba(10, 18, 48, .05);
+  border-radius: 7px;
+  letter-spacing: -.01em;
+}
+
+.rc-ghost-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, .12);
+  color: #dc2626;
+  font-size: 10px;
+  border: 1px solid rgba(239, 68, 68, .25);
+  cursor: help;
+}
+
+.rc-amount {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+.rc-amount.income { color: #00a86c; }
+.rc-amount.expense { color: #dc2626; }
+.rc-amount.pending {
+  color: #b07515;
+  font-style: italic;
+}
+
+.rc-delete {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rc-delete:hover {
+  background: rgba(239, 68, 68, .1);
+  color: #ef4444;
+  border-color: #ef4444;
+  transform: rotate(90deg);
+}
+
+/* === Тело карточки === */
+.rc-card-body {
+  padding: 14px 18px 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Услуга — крупным */
+.rc-service-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rc-service-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(30, 64, 255, .12), rgba(30, 64, 255, .06));
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.rc-service-name {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Клиентская сетка */
+.rc-client-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  padding: 10px 12px;
+  background: rgba(10, 18, 48, .025);
+  border-radius: 12px;
+}
+
+.rc-info-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.rc-info-line-full { grid-column: 1 / -1; }
+.rc-info-line > i {
+  width: 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.rc-info-label {
+  color: var(--muted);
+  font-weight: 600;
+  margin-right: 2px;
+}
+.rc-info-val {
+  color: var(--ink);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.rc-info-val.rc-address {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.rc-phone-link {
+  color: var(--blue) !important;
+  text-decoration: none;
+}
+.rc-phone-link:hover { text-decoration: underline; }
+
+/* Денежная сетка — 3 колонки: Цена, Аванс, Остаток */
+.rc-money-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(30, 64, 255, .03), rgba(0, 184, 122, .03));
+  border: 1px solid rgba(30, 64, 255, .08);
+  border-radius: 12px;
+}
+.rc-money-cell {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-right: 1px dashed rgba(10, 18, 48, .08);
+}
+.rc-money-cell:last-child { border-right: none; }
+
+.rc-money-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.rc-money-val {
+  font-size: 13.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  letter-spacing: -.01em;
+}
+.rc-money-val.rc-money-adv { color: #0a6fa1; }
+.rc-money-val.rc-money-rem { color: #dc2626; }
+.rc-money-val.rc-money-zero { color: #00875c; }
+
+/* Подвал — дата операции */
+.rc-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+.rc-foot-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rc-foot-date strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* === Иконка для секции "Ожидаемый доход" === */
+.detail-icon-pending {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
+  box-shadow: 0 8px 22px rgba(245, 158, 11, .35) !important;
+  color: #fff;
+}
+.acc-detail-total .pending-val { color: #b07515; }
+
+/* === Адаптивность для мобильных === */
+@media (max-width: 600px) {
+  .rc-card-head {
+    padding: 12px 14px 10px 18px;
+  }
+  .rc-card-body {
+    padding: 12px 14px 14px 18px;
+    gap: 12px;
+  }
+  .rc-amount { font-size: 16px; }
+  .rc-service-name { font-size: 14px; }
+  .rc-kind-badge { font-size: 10.5px; padding: 4px 9px; }
+  .rc-order-id { font-size: 11.5px; padding: 3px 7px; }
+
+  /* Клиентская сетка в одну колонку на мобилке */
+  .rc-client-grid {
+    grid-template-columns: 1fr;
+    gap: 6px 0;
+    padding: 9px 11px;
+  }
+  .rc-info-line { font-size: 12px; }
+
+  /* Денежная сетка — 3 узких колонки */
+  .rc-money-grid { padding: 9px; gap: 4px; }
+  .rc-money-cell { padding: 2px; }
+  .rc-money-label { font-size: 8.5px; }
+  .rc-money-val { font-size: 12px; }
+}
+
+@media (max-width: 400px) {
+  /* На совсем узких экранах — на 2 строки чтобы цифры не наезжали */
+  .rc-money-val { font-size: 11px; }
+}
+
+/* === Дополнительно: pending плитка KPI — кликабельный курсор === */
+.kpi.kpi-pending#pendingCard {
+  cursor: pointer;
+}
+.kpi.kpi-pending#pendingCard:hover .kpi-open-hint {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #fff;
+}
+
+/* ============================================================
+   ITERATION 4: подсказка про категории-услуги в модалке
+============================================================ */
+.modal-cat-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0a6fa1;
+  background: rgba(14, 165, 233, .08);
+  border: 1px solid rgba(14, 165, 233, .2);
+  border-radius: 9px;
+  padding: 8px 11px;
+  line-height: 1.35;
+}
+.modal-cat-hint i { font-size: 12px; flex-shrink: 0; }
+
+/* ============================================================
+   БУРГЕР-КНОПКА для мобильного сайдбара
+============================================================ */
+.acc-burger {
+  display: none;  /* на десктопе скрыта, показывается в медиа ≤1100px */
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 101;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  border: none;
+  background: linear-gradient(135deg, #0a1230, #0a2bd6);
+  color: #fff;
+  font-size: 19px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(10, 18, 48, .3);
+  transition: transform .2s, box-shadow .2s;
+}
+.acc-burger:hover { transform: scale(1.05); }
+.acc-burger:active { transform: scale(.95); }
+
+/* Когда меню открыто — бургер показывает крестик и сдвигается */
+body.sidebar-open .acc-burger {
+  left: auto;
+  right: 16px;
+  background: rgba(255, 255, 255, .15);
 }

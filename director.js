@@ -164,11 +164,19 @@ function renderEmployees() {
     const online = isOnline(u.login);
     const lastSeen = formatLastSeen(u.login);
     const initials = (u.fullName || u.login).slice(0, 2).toUpperCase();
+    const hasAvatar = !!u.avatar;
+    const profileDone = (u.role === "director") || u.profileComplete === true;
+
+    // Аватар: фото если есть, иначе инициалы
+    const avatarInner = hasAvatar
+      ? `<img src="${escapeHtml(u.avatar)}" alt="" class="employee-avatar-img"/>`
+      : escapeHtml(initials);
+
     return `
       <div class="employee-card">
         <div class="employee-head">
-          <div class="avatar avatar-lg">
-            ${escapeHtml(initials)}
+          <div class="avatar avatar-lg ${hasAvatar ? 'avatar-has-img' : ''}">
+            ${avatarInner}
             ${online ? '<span class="online-dot"></span>' : ''}
           </div>
           <div class="employee-meta">
@@ -178,15 +186,17 @@ function renderEmployees() {
           </div>
         </div>
         <div class="employee-body">
+          ${!profileDone ? `<div class="employee-pending"><i class="fa-solid fa-hourglass-half"></i> ${escapeHtml(t("dir.emp.notFilled") || "Профиль не заполнен")}</div>` : ''}
           ${u.phone ? `<div><i class="fa-solid fa-phone"></i> ${escapeHtml(u.phone)}</div>` : ''}
-          <div><i class="fa-solid fa-circle ${online ? 'st-online' : 'st-offline'}"></i> ${online ? 'В сети' : escapeHtml(lastSeen)}</div>
+          ${u.address ? `<div><i class="fa-solid fa-location-dot"></i> ${escapeHtml(u.address)}</div>` : ''}
+          <div><i class="fa-solid fa-circle ${online ? 'st-online' : 'st-offline'}"></i> ${online ? (t("common.online") || 'В сети') : escapeHtml(lastSeen)}</div>
         </div>
         <div class="employee-actions">
           <button class="ghost-btn" onclick="dirChangePassword('${escapeHtml(u.login)}')">
-            <i class="fa-solid fa-key"></i> Пароль
+            <i class="fa-solid fa-key"></i> ${escapeHtml(t("dir.emp.password") || "Пароль")}
           </button>
           <button class="danger-btn" onclick="dirDeleteUser('${escapeHtml(u.login)}')">
-            <i class="fa-solid fa-trash"></i> Удалить
+            <i class="fa-solid fa-trash"></i> ${escapeHtml(t("dir.emp.delete") || "Удалить")}
           </button>
         </div>
       </div>
@@ -213,8 +223,9 @@ async function dirCreateUser() {
   const role = document.getElementById("newRole").value;
   const errEl = document.getElementById("createUserError");
 
-  if (!fullName || !login || !password) {
-    errEl.textContent = t("dir.emp.errFill");
+  // Обязательны только логин и пароль — имя сотрудник заполнит сам
+  if (!login || !password) {
+    errEl.textContent = t("dir.emp.errLoginPw") || "Введите логин и пароль";
     return;
   }
   if (login.length < 3 || password.length < 4) {
@@ -225,7 +236,8 @@ async function dirCreateUser() {
   const res = await createUser({ fullName, login, password, phone, role }, dirSession.login);
   if (!res.ok) { errEl.textContent = res.error; return; }
   closeCreateUserModal();
-  showToast("success", t("dir.emp.created"), `${fullName} (${roleLabel(role)})`);
+  const displayName = fullName || login;
+  showToast("success", t("dir.emp.created"), `${displayName} (${roleLabel(role)})`);
   renderEmployees();
   renderDashboard();
 }
@@ -417,6 +429,9 @@ function renderDirOrders() {
             <option value="unpaid" ${o.payment==='unpaid'?'selected':''}>${t("order.unpaid")}</option>
             <option value="draft"  ${o.payment==='draft'?'selected':''}>${t("order.draft")}</option>
           </select>
+          <button class="ghost-btn small dir-order-del" onclick="dirDeleteOrder('${o.id}')" title="Удалить заказ">
+            <i class="fa-solid fa-trash"></i>
+          </button>
         </div>
       </div>
     `;
@@ -427,6 +442,22 @@ function dirChangePayment(orderId, newPayment) {
   updateOrderPayment(orderId, newPayment, dirSession.login);
   showToast("success", t("common.success"), paymentLabel(newPayment));
   renderDirOrders();
+}
+
+function dirDeleteOrder(orderId) {
+  const orders = getAllOrders();
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  const shortId = orderId.slice(-6);
+  const msg = `Удалить заказ #${shortId} (${o.name || ""})?\n\nВнимание: все связанные транзакции (аванс, оплата, ожидание) тоже исчезнут из бухгалтерии.`;
+  if (!confirm(msg)) return;
+  const res = deleteOrder(orderId, dirSession.login);
+  if (res.ok) {
+    showToast("success", t("common.success"), `Заказ #${shortId} удалён`);
+    renderDirOrders();
+  } else {
+    showToast("error", t("common.error"), res.error || "");
+  }
 }
 
 /* =========================================================
@@ -532,27 +563,22 @@ function renderServicesEditor() {
   }
 
   grid.innerHTML = html;
-
-  // Подключаем drag & drop
   attachServiceDragDrop();
 }
 
 /* =========================================================
-   DRAG & DROP для перетаскивания карточек услуг
+   DRAG & DROP для карточек услуг
 ========================================================= */
 let _dragSvcId = null;
-
 function attachServiceDragDrop() {
   const grid = document.getElementById("svcDragGrid");
   if (!grid) return;
-
   const cards = grid.querySelectorAll(".svc-edit-card");
 
   cards.forEach(card => {
     card.addEventListener("dragstart", (e) => {
       _dragSvcId = card.dataset.svcId;
       card.classList.add("is-dragging");
-      // Для Firefox обязательно установить data
       try { e.dataTransfer.setData("text/plain", _dragSvcId); } catch {}
       e.dataTransfer.effectAllowed = "move";
     });
@@ -579,7 +605,6 @@ function attachServiceDragDrop() {
       card.classList.remove("svc-drag-over");
       if (!_dragSvcId || card.dataset.svcId === _dragSvcId) return;
 
-      // Определяем куда вставить — до или после целевой карточки
       const rect = card.getBoundingClientRect();
       const horizontalCenter = rect.left + rect.width / 2;
       const after = e.clientX > horizontalCenter;
@@ -593,7 +618,6 @@ function attachServiceDragDrop() {
         card.parentNode.insertBefore(draggedEl, card);
       }
 
-      // Сохраняем новый порядок
       const newOrder = Array.from(grid.querySelectorAll(".svc-edit-card")).map(c => c.dataset.svcId);
       reorderServices(newOrder, getSession()?.login || "director");
       showToast("success", t("dir.svc.reordered") || "Порядок сохранён", "");
@@ -728,6 +752,8 @@ function renderSettingsTab() {
   const wrap = document.getElementById("settingsBody");
   if (!wrap) return;
   const s = getSettings();
+  const logo = getCompanyLogo();
+  const threshold = getDayLoadThreshold();
   wrap.innerHTML = `
     <div class="settings-card">
       <h3><i class="fa-solid fa-store"></i> Информация о компании</h3>
@@ -741,7 +767,111 @@ function renderSettingsTab() {
         <i class="fa-solid fa-floppy-disk"></i> Сохранить
       </button>
     </div>
+
+    <div class="settings-card">
+      <h3><i class="fa-solid fa-image"></i> Логотип компании</h3>
+      <p class="muted" style="margin:-4px 0 14px">PNG, JPG, WEBP или SVG. Рекомендуется квадратное изображение до 500×500 px. Логотип появится в шапке всех страниц вместо иконки метлы.</p>
+
+      <div class="logo-preview-wrap">
+        <div class="logo-preview-box" id="logoPreviewBox">
+          ${logo
+            ? `<img src="${escapeHtml(logo)}" alt="logo"/>`
+            : `<div class="logo-empty"><i class="fa-solid fa-broom"></i><div>Сейчас используется иконка по умолчанию</div></div>`
+          }
+        </div>
+        <div class="logo-controls">
+          <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none" onchange="dirHandleLogoUpload(event)"/>
+          <button class="primary" onclick="document.getElementById('logoFileInput').click()">
+            <i class="fa-solid fa-upload"></i> Загрузить логотип
+          </button>
+          ${logo ? `<button class="ghost-btn dir-order-del" onclick="dirRemoveLogo()" style="margin-top:8px">
+            <i class="fa-solid fa-trash"></i> Удалить логотип
+          </button>` : ""}
+          <div class="muted" style="margin-top:10px;font-size:12px">Максимум: 500 КБ</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3><i class="fa-solid fa-gauge-high"></i> Загруженность дня</h3>
+      <p class="muted" style="margin:-4px 0 14px">При создании нового заказа система предупредит если на выбранный день уже много заказов. От этого числа считается "перегруз".</p>
+      <label class="label">Максимум заказов в день</label>
+      <input type="number" id="setDayLoadThreshold" min="1" max="50" value="${threshold}" style="max-width:160px"/>
+      <div class="day-load-presets">
+        <div class="day-load-preset day-load-free"><i class="fa-solid fa-circle-check"></i> 0 заказов — день свободен</div>
+        <div class="day-load-preset day-load-ok"><i class="fa-solid fa-circle-info"></i> 1—${Math.max(1, threshold - 2)} — нормально</div>
+        <div class="day-load-preset day-load-warn"><i class="fa-solid fa-circle-exclamation"></i> ${Math.max(1, threshold - 1)} — напряжённо</div>
+        <div class="day-load-preset day-load-bad"><i class="fa-solid fa-triangle-exclamation"></i> ${threshold}+ — перегруз!</div>
+      </div>
+      <button class="primary" style="margin-top:16px" onclick="dirSaveDayLoad()">
+        <i class="fa-solid fa-floppy-disk"></i> Сохранить порог
+      </button>
+    </div>
+
+    ${renderQrSettingsCard()}
   `;
+}
+
+/* === Настройка QR-кода чека (только директор, генерация из ссылки) === */
+function renderQrSettingsCard() {
+  const qr = (typeof getReceiptQr === "function") ? getReceiptQr() : { url: "", image: "", caption: "" };
+  // Превью генерируем из ссылки
+  let previewSrc = "";
+  if (qr.url && window.KusQR) {
+    try { previewSrc = window.KusQR.toDataURL(qr.url, { size: 200, margin: 2 }); } catch (e) {}
+  } else if (qr.image) {
+    previewSrc = qr.image; // на случай если раньше была загружена картинка
+  }
+
+  return `
+    <div class="settings-card">
+      <h3><i class="fa-solid fa-qrcode"></i> QR-код на чеке</h3>
+      <p class="muted" style="margin:-4px 0 14px">QR-код печатается внизу каждого чека (на экране и при печати). Введите ссылку — QR сгенерируется автоматически. Клиент отсканирует его телефоном и попадёт на ваш сайт.</p>
+
+      <div class="qr-settings-grid">
+        <div class="qr-settings-preview" id="qrPreviewBox">
+          ${previewSrc
+            ? `<img src="${escapeHtml(previewSrc)}" alt="QR" id="qrPreviewImg"/>`
+            : `<div class="qr-empty"><i class="fa-solid fa-qrcode"></i><div>QR ещё не задан</div></div>`}
+        </div>
+
+        <div class="qr-settings-controls">
+          <label class="label"><i class="fa-solid fa-link"></i> Ссылка / текст внутри QR</label>
+          <input type="text" id="setQrUrl" placeholder="https://ваш-сайт.uz или t.me/..." value="${escapeHtml(qr.url || '')}"/>
+
+          <label class="label" style="margin-top:10px">Подпись под QR (необязательно)</label>
+          <input type="text" id="setQrCaption" placeholder="Например: Сканируйте для отзыва" value="${escapeHtml(qr.caption || '')}"/>
+
+          <button class="primary" style="margin-top:14px;width:100%" onclick="dirSaveQr()">
+            <i class="fa-solid fa-floppy-disk"></i> Сохранить QR
+          </button>
+
+          ${(qr.url || qr.image) ? `<button class="ghost-btn dir-order-del" style="width:100%;margin-top:8px" onclick="dirRemoveQr()">
+            <i class="fa-solid fa-trash"></i> Удалить QR
+          </button>` : ""}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function dirSaveQr() {
+  const url = document.getElementById("setQrUrl").value.trim();
+  const caption = document.getElementById("setQrCaption").value.trim();
+  if (!url) {
+    showToast("error", t("common.error"), "Введите ссылку или текст для QR");
+    return;
+  }
+  saveReceiptQr({ url: url, caption: caption, image: "" }, dirSession.login);
+  showToast("success", t("common.success"), "QR-код сохранён");
+  renderSettingsTab();
+}
+
+function dirRemoveQr() {
+  if (!confirm("Удалить QR-код с чеков?")) return;
+  removeReceiptQr(dirSession.login);
+  showToast("success", t("common.success"), "QR удалён");
+  renderSettingsTab();
 }
 
 function dirSaveSettings() {
@@ -752,6 +882,58 @@ function dirSaveSettings() {
   };
   saveSettings(patch, dirSession.login);
   showToast("success", t("common.success"), t("dir.set.saved"));
+}
+
+function dirSaveDayLoad() {
+  const val = parseInt(document.getElementById("setDayLoadThreshold").value);
+  if (!val || val < 1 || val > 50) {
+    showToast("error", t("common.error"), "Введите число от 1 до 50");
+    return;
+  }
+  saveSettings({ dayLoadThreshold: val }, dirSession.login);
+  showToast("success", t("common.success"), `Порог сохранён: ${val} заказов в день`);
+  renderSettingsTab();
+}
+
+/* === Логотип компании === */
+function dirHandleLogoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  // Проверка размера
+  if (file.size > 500 * 1024) {
+    showToast("error", t("common.error"), `Файл слишком большой (${Math.round(file.size/1024)} КБ). Максимум 500 КБ.`);
+    event.target.value = "";
+    return;
+  }
+  // Проверка типа
+  const allowed = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
+  if (!allowed.includes(file.type)) {
+    showToast("error", t("common.error"), "Только PNG, JPG, WEBP или SVG");
+    event.target.value = "";
+    return;
+  }
+  // Читаем как DataURL
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const dataUrl = e.target.result;
+    saveCompanyLogo(dataUrl, dirSession.login);
+    showToast("success", t("common.success"), "Логотип загружен и сохранён");
+    renderSettingsTab();
+    applyCompanyLogo();
+  };
+  reader.onerror = function () {
+    showToast("error", t("common.error"), "Не удалось прочитать файл");
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
+}
+
+function dirRemoveLogo() {
+  if (!confirm("Удалить логотип? Везде вернётся иконка метлы.")) return;
+  removeCompanyLogo(dirSession.login);
+  showToast("success", t("common.success"), "Логотип удалён");
+  renderSettingsTab();
+  applyCompanyLogo();
 }
 
 /* =========================================================
@@ -855,7 +1037,7 @@ function fillAttendanceUserFilter() {
   // Также показываем всех сотрудников из системы (даже если они ещё не отмечались)
   const users = getUsers();
   users.forEach(u => {
-    if (u.role === "worker" || u.role === "accountant") {
+    if (u.role === "worker" || u.role === "accountant" || u.role === "supervisor") {
       if (!seen.has(u.login)) seen.set(u.login, u.fullName || u.login);
     }
   });
@@ -891,7 +1073,7 @@ function renderAttendanceTodaySummary() {
   arrivedSet.forEach(login => { if (!leftSet.has(login)) onShiftSet.add(login); });
 
   // Получаем общее количество сотрудников
-  const allStaff = getUsers().filter(u => u.role === "worker" || u.role === "accountant").length;
+  const allStaff = getUsers().filter(u => u.role === "worker" || u.role === "accountant" || u.role === "supervisor").length;
 
   wrap.innerHTML = `
     <div class="att-summary-card att-summary-1">
@@ -1130,7 +1312,7 @@ function renderTasksTab() {
 function renderTaskStaffList() {
   const list = document.getElementById("taskStaffList");
   if (!list) return;
-  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant" || u.role === "supervisor");
 
   if (users.length === 0) {
     list.innerHTML = `<div class="empty-state" style="padding:20px"><p>${escapeHtml(t("receipt.noStaff"))}</p></div>`;
@@ -1146,7 +1328,7 @@ function renderTaskStaffList() {
                ${checked ? 'checked' : ''}
                onchange="dirTogglePickStaff('${escapeHtml(u.login)}', this.checked)"/>
         <div class="task-staff-avatar">
-          <i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : 'fa-user'}"></i>
+          <i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : (u.role === 'supervisor' ? 'fa-user-shield' : 'fa-user')}"></i>
           ${isOn ? '<span class="online-dot"></span>' : ''}
         </div>
         <div class="task-staff-info">
@@ -1167,7 +1349,7 @@ function dirTogglePickStaff(login, isOn) {
 }
 
 function dirToggleAllStaff(pickAll) {
-  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant" || u.role === "supervisor");
   if (pickAll) users.forEach(u => _taskPickedSet.add(u.login));
   else _taskPickedSet.clear();
   renderTaskStaffList();
@@ -1337,7 +1519,7 @@ function printReceipt() {
 
 function openSendReceiptModal() {
   if (!_currentReceiptOrderId) return;
-  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant");
+  const users = getUsers().filter(u => u.role === "worker" || u.role === "accountant" || u.role === "supervisor");
   const list = document.getElementById("receiptStaffList");
   if (users.length === 0) {
     list.innerHTML = `<div class="empty-state"><p>${escapeHtml(t("receipt.noStaff"))}</p></div>`;
@@ -1345,7 +1527,7 @@ function openSendReceiptModal() {
     list.innerHTML = users.map(u => `
       <label class="staff-pick-item">
         <input type="checkbox" class="staff-pick-cb" data-login="${escapeHtml(u.login)}"/>
-        <div class="staff-pick-avatar"><i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : 'fa-user'}"></i></div>
+        <div class="staff-pick-avatar"><i class="fa-solid ${u.role === 'accountant' ? 'fa-calculator' : (u.role === 'supervisor' ? 'fa-user-shield' : 'fa-user')}"></i></div>
         <div class="staff-pick-info">
           <div class="staff-pick-name">${escapeHtml(u.fullName || u.login)}</div>
           <div class="staff-pick-role muted">${roleLabel(u.role)}</div>
@@ -1390,3 +1572,35 @@ function sendReceiptToStaff() {
   closeReceipt();
   showToast("success", t("receipt.sent"), t("receipt.sentTo", { n: toLogins.length }));
 }
+
+/* =========================================================
+   МОБИЛЬНЫЙ САЙДБАР — выезжающее меню (бургер)
+========================================================= */
+function dirToggleSidebar() {
+  document.body.classList.toggle("sidebar-open");
+  var icon = document.getElementById("dirBurgerIcon");
+  if (icon) {
+    var open = document.body.classList.contains("sidebar-open");
+    icon.className = open ? "fa-solid fa-xmark" : "fa-solid fa-bars";
+  }
+}
+function dirCloseSidebar() {
+  document.body.classList.remove("sidebar-open");
+  var icon = document.getElementById("dirBurgerIcon");
+  if (icon) icon.className = "fa-solid fa-bars";
+}
+document.addEventListener("DOMContentLoaded", function () {
+  var sidebar = document.querySelector(".dir-sidebar");
+  if (!sidebar) return;
+  sidebar.addEventListener("click", function (e) {
+    if (window.innerWidth > 1024) return;
+    var el = e.target.closest("a, button");
+    // не закрываем при переключении языка
+    if (el && !el.closest(".lang-switcher") && !el.closest("[data-lang]")) {
+      setTimeout(dirCloseSidebar, 150);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") dirCloseSidebar();
+  });
+});

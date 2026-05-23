@@ -16,6 +16,7 @@
 
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 </head>
 <body>
@@ -38,7 +39,7 @@
 
     <div class="nav-center">
       <a href="worker.html" class="brand-text" id="brandText">
-        <i class="fa-solid fa-broom"></i>
+        <i class="fa-solid fa-broom" data-brand-icon></i>
         <span>KOMFORT</span>
       </a>
     </div>
@@ -236,10 +237,67 @@
     </div>
   </div>
 
+  <!-- ============ Когда начать работу ============ -->
+  <div id="takeOrderModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-narrow take-order-modal">
+      <button class="close" onclick="closeTakeOrderModal()" aria-label="Close">&times;</button>
+
+      <div class="take-order-head">
+        <div class="take-order-icon"><i class="fa-solid fa-hand-holding"></i></div>
+        <div>
+          <h2 data-i18n="take.title">Взять заказ</h2>
+          <p class="muted" data-i18n="take.sub">Когда вы планируете начать работу?</p>
+        </div>
+      </div>
+
+      <div class="take-order-summary">
+        <div class="take-order-row">
+          <i class="fa-solid fa-broom"></i>
+          <div class="take-order-row-main"><div class="muted" data-i18n="take.service">Услуга</div><strong id="toService">—</strong></div>
+        </div>
+        <div class="take-order-row">
+          <i class="fa-solid fa-user"></i>
+          <div class="take-order-row-main"><div class="muted" data-i18n="take.client">Клиент</div><strong id="toClient">—</strong></div>
+        </div>
+        <div class="take-order-row">
+          <i class="fa-solid fa-location-dot"></i>
+          <div class="take-order-row-main"><div class="muted" data-i18n="take.address">Адрес</div><strong id="toAddress">—</strong></div>
+        </div>
+      </div>
+
+      <div class="take-order-times">
+        <div class="take-order-time take-order-time-ro">
+          <div class="muted"><i class="fa-regular fa-clock"></i> <span data-i18n="take.takenAt">Когда взят</span></div>
+          <strong id="toTakenAt">—</strong>
+        </div>
+        <div class="take-order-time take-order-time-ro">
+          <div class="muted"><i class="fa-solid fa-calendar-check"></i> <span data-i18n="take.wantedAt">Клиент хочет</span></div>
+          <strong id="toWantedAt">—</strong>
+        </div>
+      </div>
+
+      <div class="take-order-start-block">
+        <label class="label"><i class="fa-solid fa-play"></i> <span data-i18n="take.startAt">Когда начать работу</span></label>
+        <div class="grid-2">
+          <input type="date" id="toStartDate"/>
+          <input type="time" id="toStartTime"/>
+        </div>
+      </div>
+
+      <div id="toWarning" class="take-order-warn" style="display:none"></div>
+
+      <button class="primary take-order-confirm" onclick="confirmTakeOrder()">
+        <i class="fa-solid fa-check"></i>
+        <span data-i18n="take.confirm">Подтвердить и взять</span>
+      </button>
+    </div>
+  </div>
+
   <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
 
   <script src="i18n.js"></script>
   <script src="firebase-sync.js"></script>
+  <script src="qrcode.js"></script>
   <script src="auth.js"></script>
   <script src="worker.js"></script>
   <script src="pwa.js"></script>

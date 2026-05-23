@@ -4,7 +4,7 @@
    ВАЖНО: Firebase / Nominatim / Google Fonts всегда идут в сеть.
 ========================================================= */
 
-const CACHE_VERSION = "komfort-v4";  // ← БУМПАЙ при выпуске новой версии
+const CACHE_VERSION = "komfort-v14";  // ← БУМПАЙ при выпуске новой версии
 const CACHE_NAME = `komfort-shell-${CACHE_VERSION}`;
 
 // Файлы оболочки — без них приложение не работает
@@ -15,16 +15,22 @@ const SHELL_FILES = [
   "./director.html",
   "./worker.html",
   "./accountant.html",
+  "./archive.html",
+  "./profile.html",
   "./style.css",
   "./director.css",
   "./accountant.css",
+  "./archive.css",
   "./i18n.js",
   "./auth.js",
   "./firebase-sync.js",
+  "./qrcode.js",
   "./app.js",
   "./director.js",
   "./worker.js",
   "./accountant.js",
+  "./archive.js",
+  "./profile.js",
   "./pwa.js",
   "./manifest.json",
   "./icon-96.png",
@@ -98,8 +104,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // FontAwesome и Google Fonts — stale-while-revalidate
+  // CDN библиотек (Chart.js, Moment.js, Font Awesome, Google Fonts) — stale-while-revalidate
+  // После первой удачной загрузки они лежат в кеше и работают даже когда заблокированы
   if (url.hostname.includes("cdnjs.cloudflare.com") ||
+      url.hostname.includes("cdn.jsdelivr.net") ||
+      url.hostname.includes("unpkg.com") ||
       url.hostname.includes("fonts.googleapis.com") ||
       url.hostname.includes("fonts.gstatic.com")) {
     event.respondWith(staleWhileRevalidate(event.request));

@@ -534,13 +534,21 @@ input::placeholder { color: var(--muted); }
   background: var(--bg-2);
   border-radius: var(--radius-lg);
   padding: 36px;
-  max-width: 520px;
+  max-width: 720px;             /* было 520px — больше для планшетов */
   width: 100%;
   position: relative;
   box-shadow: var(--shadow-lg);
-  max-height: 90vh;
+  max-height: 92vh;
   overflow-y: auto;
   animation: modalIn .45s var(--ease-snap) both;
+}
+/* Особо большая модалка (формы услуг, чеки) — ещё шире */
+.modal-content.modal-content-wide {
+  max-width: 880px;
+}
+/* Узкие модалки — для коротких форм (создание юзера, выбор сотрудника) */
+.modal-content.modal-content-narrow {
+  max-width: 520px;
 }
 @keyframes modalIn {
   from { opacity: 0; transform: translateY(40px) scale(.95); }
@@ -1481,7 +1489,7 @@ input::placeholder { color: var(--muted); }
    ТУРНИКЕТ — модалка камеры
 ========================================================= */
 .modal-content-wide {
-  max-width: 560px !important;
+  max-width: 880px !important;
 }
 
 .ts-steps {
@@ -2409,4 +2417,610 @@ input::placeholder { color: var(--muted); }
 }
 @media (max-width: 600px) {
   .pwa-install-btn { bottom: 16px; left: 16px; padding: 10px 14px; font-size: 13px; }
+}
+
+/* ============================================================
+   ITERATION 1: LOGO, SUPERVISOR, BIG MODALS, DAY LOAD INDICATOR
+============================================================ */
+
+/* === Логотип компании (заменяет иконку метлы) === */
+.brand-mark-img {
+  height: 38px;
+  width: auto;
+  max-width: 64px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 8px;
+}
+/* В login.brand .brand-mark — крупнее */
+.login-brand .brand-mark .brand-mark-img {
+  height: 64px;
+  max-width: 100px;
+  border-radius: 14px;
+}
+/* В sidebar директора */
+.dir-brand .brand-mark-img {
+  height: 32px;
+  max-width: 48px;
+  border-radius: 7px;
+}
+/* В navbar бренда (рядом со словом KOMFORT) */
+.brand-text .brand-mark-img {
+  height: 30px;
+  max-width: 44px;
+  border-radius: 6px;
+  margin-right: 4px;
+}
+
+/* === Чип супервайзера === */
+.user-chip.user-chip-sv {
+  border-color: #8b5cf6;
+  color: #6d3fc1;
+  background: rgba(139, 92, 246, .08);
+}
+
+/* === Индикатор загруженности дня в форме заказа === */
+.day-load-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+}
+.day-load-indicator i { font-size: 14px; }
+
+.day-load-indicator.day-load-free {
+  background: rgba(0, 184, 122, .08);
+  color: #00875c;
+  border-color: rgba(0, 184, 122, .25);
+}
+.day-load-indicator.day-load-ok {
+  background: rgba(14, 165, 233, .08);
+  color: #0a6fa1;
+  border-color: rgba(14, 165, 233, .25);
+}
+.day-load-indicator.day-load-warn {
+  background: rgba(245, 158, 11, .1);
+  color: #b07515;
+  border-color: rgba(245, 158, 11, .3);
+}
+.day-load-indicator.day-load-bad {
+  background: rgba(239, 68, 68, .1);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, .3);
+  animation: dayLoadPulse 1.6s infinite;
+}
+@keyframes dayLoadPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, .15); }
+}
+
+/* === Логотип в настройках === */
+.logo-preview-wrap {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 20px;
+  align-items: center;
+  margin-top: 10px;
+}
+.logo-preview-box {
+  width: 180px;
+  height: 180px;
+  border-radius: 18px;
+  border: 2px dashed var(--line);
+  background: var(--bg-2, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 12px;
+}
+.logo-preview-box img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.logo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.logo-empty i { font-size: 36px; opacity: .5; }
+.logo-controls { display: flex; flex-direction: column; gap: 4px; }
+
+/* === Превью порогов загрузки в настройках === */
+.day-load-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+.day-load-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid var(--line);
+}
+.day-load-preset i { font-size: 12px; }
+.day-load-preset.day-load-free { background: rgba(0, 184, 122, .07); color: #00875c; }
+.day-load-preset.day-load-ok   { background: rgba(14, 165, 233, .07); color: #0a6fa1; }
+.day-load-preset.day-load-warn { background: rgba(245, 158, 11, .08); color: #b07515; }
+.day-load-preset.day-load-bad  { background: rgba(239, 68, 68, .08); color: #b91c1c; }
+
+/* === КРУПНЕЕ инпуты и кнопки в модалках для планшета === */
+.modal-content input[type="text"],
+.modal-content input[type="tel"],
+.modal-content input[type="email"],
+.modal-content input[type="number"],
+.modal-content input[type="date"],
+.modal-content input[type="time"],
+.modal-content input[type="password"],
+.modal-content select,
+.modal-content textarea {
+  font-size: 15.5px;
+  padding: 13px 16px;
+  min-height: 48px;
+}
+.modal-content .label,
+.modal-content .order-block-title {
+  font-size: 14px;
+}
+.modal-content .primary,
+.modal-content .ghost-btn {
+  font-size: 15px;
+  padding: 13px 22px;
+  min-height: 48px;
+}
+.modal-content h2 {
+  font-size: 22px;
+}
+
+/* === Адаптив: на мобилке возвращаем компактность === */
+@media (max-width: 600px) {
+  .modal-content { padding: 22px; max-width: 95vw; }
+  .modal-content.modal-content-wide { max-width: 95vw; }
+  .modal-content input,
+  .modal-content select { font-size: 14px; padding: 11px 13px; min-height: 42px; }
+  .modal-content .primary,
+  .modal-content .ghost-btn { font-size: 14px; padding: 11px 18px; min-height: 42px; }
+  .modal-content h2 { font-size: 19px; }
+  .logo-preview-wrap { grid-template-columns: 1fr; }
+  .logo-preview-box { width: 100%; height: 160px; }
+  .day-load-presets { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   ITERATION 2: TAKE ORDER MODAL ("Когда начать работу")
+============================================================ */
+
+.take-order-modal { padding: 28px; }
+
+.take-order-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.take-order-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, var(--blue), #4c6bff);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  flex-shrink: 0;
+  box-shadow: 0 8px 22px rgba(30, 64, 255, .35);
+}
+.take-order-head h2 {
+  font-size: 20px;
+  margin: 0 0 3px;
+}
+
+.take-order-summary {
+  background: var(--bg-3);
+  border-radius: 13px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.take-order-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.take-order-row > i {
+  width: 18px;
+  text-align: center;
+  color: var(--blue);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.take-order-row-main { min-width: 0; flex: 1; }
+.take-order-row-main .muted {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+}
+.take-order-row-main strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.take-order-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.take-order-time {
+  padding: 11px 13px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+.take-order-time .muted {
+  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.take-order-time strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.take-order-start-block {
+  margin-bottom: 14px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(30, 64, 255, .05), rgba(30, 64, 255, .02));
+  border: 1.5px solid rgba(30, 64, 255, .2);
+  border-radius: 13px;
+}
+.take-order-start-block .label {
+  font-size: 13px;
+  color: var(--blue);
+  font-weight: 800;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.take-order-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  border: 1.5px solid transparent;
+  font-size: 13px;
+}
+.take-order-warn > i {
+  font-size: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.take-order-warn strong { display: block; font-weight: 800; }
+.take-order-warn .muted { font-size: 11.5px; margin-top: 2px; line-height: 1.4; }
+
+.take-order-warn.take-order-warn-ok {
+  background: rgba(0, 184, 122, .08);
+  color: #00875c;
+  border-color: rgba(0, 184, 122, .25);
+}
+.take-order-warn.take-order-warn-info {
+  background: rgba(14, 165, 233, .08);
+  color: #0a6fa1;
+  border-color: rgba(14, 165, 233, .25);
+}
+.take-order-warn.take-order-warn-bad {
+  background: rgba(239, 68, 68, .08);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, .3);
+  animation: takeWarnPulse 1.6s infinite;
+}
+@keyframes takeWarnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, .12); }
+}
+
+.take-order-confirm {
+  width: 100%;
+  font-size: 15px;
+  padding: 14px 22px;
+  font-weight: 800;
+}
+
+/* Чек с логотипом — поддержка картинки */
+.receipt-logo-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #fff;
+  padding: 6px;
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 600px) {
+  .take-order-times { grid-template-columns: 1fr; }
+  .take-order-modal { padding: 22px; }
+  .take-order-head h2 { font-size: 18px; }
+}
+
+/* ============================================================
+   ITERATION 3: PROFILE ONBOARDING (анкета первого входа)
+============================================================ */
+
+.profile-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px 50px;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 34px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn .5s var(--ease-snap) both;
+}
+
+.profile-welcome {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.profile-welcome-icon {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 14px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--blue), #4c6bff);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 12px 28px rgba(30, 64, 255, .35);
+}
+.profile-welcome h1 {
+  font-size: 24px;
+  margin: 0 0 6px;
+}
+
+/* Аватар-секция */
+.profile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 22px;
+}
+.profile-avatar-box {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 3px dashed var(--line);
+  background: var(--bg-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all .25s var(--ease);
+  position: relative;
+}
+.profile-avatar-box:hover {
+  border-color: var(--blue);
+  transform: scale(1.03);
+}
+.profile-avatar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  padding: 10px;
+}
+.profile-avatar-empty i { font-size: 30px; }
+.profile-avatar-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-avatar-hint {
+  font-size: 11.5px;
+  margin-top: 10px;
+  text-align: center;
+  max-width: 240px;
+}
+
+/* Адрес с кнопкой */
+.profile-address-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.profile-address-row input { flex: 1; }
+.profile-address-row .ghost-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.address-status {
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--bg-3);
+  color: var(--muted);
+}
+.address-status.address-status-ok {
+  background: rgba(0, 184, 122, .1);
+  color: #00875c;
+}
+.address-status.address-status-err {
+  background: rgba(239, 68, 68, .1);
+  color: #b91c1c;
+}
+
+.profile-logout-btn {
+  width: 100%;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+/* === Аватар-фото в карточках сотрудников === */
+.avatar.avatar-has-img {
+  padding: 0;
+  overflow: hidden;
+}
+.employee-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.employee-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b07515;
+  background: rgba(245, 158, 11, .1);
+  padding: 5px 10px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+/* === Инфо-блок и "дополнительно" в форме создания === */
+.create-user-info {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: rgba(14, 165, 233, .08);
+  border: 1px solid rgba(14, 165, 233, .2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #0a6fa1;
+}
+.create-user-info i { font-size: 15px; margin-top: 2px; flex-shrink: 0; }
+
+.create-user-optional {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 14px;
+}
+.create-user-optional summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--muted);
+  user-select: none;
+}
+.create-user-optional summary:hover { color: var(--ink); }
+.create-user-optional[open] { padding-bottom: 14px; }
+
+@media (max-width: 600px) {
+  .profile-card { padding: 26px 22px; }
+  .profile-welcome h1 { font-size: 21px; }
+  .profile-avatar-box { width: 110px; height: 110px; }
+  .profile-address-row { flex-direction: column; }
+  .profile-address-row .ghost-btn { width: 100%; justify-content: center; }
+}
+
+/* ============================================================
+   QR-КОД НА ЧЕКЕ
+============================================================ */
+.receipt-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 4px;
+}
+.receipt-qr-divider {
+  width: 100%;
+  border-top: 1.5px dashed rgba(10, 18, 48, .18);
+  margin-bottom: 16px;
+}
+.receipt-qr-img {
+  width: 130px;
+  height: 130px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px;
+  border: 1px solid rgba(10, 18, 48, .1);
+}
+.receipt-qr-caption {
+  margin-top: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3a4668;
+  text-align: center;
+  letter-spacing: .01em;
+  max-width: 220px;
+  line-height: 1.35;
+}
+
+/* Печать: QR должен быть чёрно-белым и чётким */
+@media print {
+  .receipt-qr-img {
+    border: none;
+    padding: 0;
+    width: 120px;
+    height: 120px;
+  }
+  .receipt-qr-divider {
+    border-top: 1px dashed #999;
+  }
 }
