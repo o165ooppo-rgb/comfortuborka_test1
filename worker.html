@@ -53,7 +53,7 @@
   <section class="worker-hero">
     <div class="worker-hero-inner">
       <div class="worker-greet">
-        <div class="worker-greet-icon"><i class="fa-solid fa-hand-wave"></i></div>
+        <div class="worker-greet-icon" id="workerGreetAvatar"><i class="fa-solid fa-hand-wave"></i></div>
         <div>
           <h1 id="workerWelcomeTitle"><span data-i18n="worker.welcome">Здравствуйте</span>, <span id="workerWelcomeName">—</span>!</h1>
           <p class="muted" data-i18n="worker.subtitle">Отмечайтесь, общайтесь с директором, выполняйте задания</p>
@@ -81,6 +81,13 @@
           <div>
             <div class="worker-stat-value" id="wstatAttToday">0</div>
             <div class="worker-stat-label muted" data-i18n="worker.stats.attToday">Отметок сегодня</div>
+          </div>
+        </div>
+        <div class="worker-stat worker-stat-wallet">
+          <div class="worker-stat-icon worker-stat-money"><i class="fa-solid fa-wallet"></i></div>
+          <div>
+            <div class="worker-stat-value" id="wstatTodayEarned">0</div>
+            <div class="worker-stat-label muted" data-i18n="worker.stats.todayEarned">Заработано сегодня</div>
           </div>
         </div>
       </div>
@@ -222,6 +229,15 @@
       </div>
 
       <div id="tsError" class="login-error" style="display:none"></div>
+
+      <!-- Поле пароля турникета (появляется после фото) -->
+      <div id="tsPasswordBlock" class="ts-password-block" style="display:none">
+        <label class="label"><i class="fa-solid fa-lock"></i> <span data-i18n="ts.passwordLabel">Код подтверждения</span></label>
+        <input type="password" id="tsPasswordInput" inputmode="numeric" maxlength="10"
+               class="ts-password-input" data-i18n-ph="ts.passwordPh" placeholder="Введите код"
+               onkeypress="if(event.key==='Enter')tsSubmit()"/>
+        <div class="ts-password-hint muted" data-i18n="ts.passwordHint">Спросите код у директора</div>
+      </div>
 
       <div class="ts-actions">
         <button id="tsCaptureBtn" class="primary ts-btn-capture" onclick="tsCapturePhoto()">

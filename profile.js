@@ -45,10 +45,19 @@ let _profileLng = null;
     return;
   }
 
-  // Предзаполняем тем что уже есть (например логин в имя)
+  // Предзаполняем тем что уже есть
   const u = (typeof getUserByLogin === "function") ? getUserByLogin(s.login) : null;
   if (u) {
-    if (u.fullName && u.fullName !== u.login) document.getElementById("pName").value = u.fullName;
+    // Если уже есть firstName/lastName — берём их; иначе пробуем разбить fullName
+    let fn = u.firstName || "";
+    let ln = u.lastName || "";
+    if (!fn && !ln && u.fullName && u.fullName !== u.login) {
+      const parts = u.fullName.trim().split(/\s+/);
+      fn = parts[0] || "";
+      ln = parts.slice(1).join(" ") || "";
+    }
+    if (fn) document.getElementById("pFirstName").value = fn;
+    if (ln) document.getElementById("pLastName").value = ln;
     if (u.phone) document.getElementById("pPhone").value = u.phone;
     if (u.address) document.getElementById("pAddress").value = u.address;
     if (u.avatar) {
@@ -203,13 +212,18 @@ function profileSubmit() {
   const errEl = document.getElementById("profileError");
   errEl.style.display = "none";
 
-  const name = document.getElementById("pName").value.trim();
+  const firstName = document.getElementById("pFirstName").value.trim();
+  const lastName = document.getElementById("pLastName").value.trim();
   const phone = document.getElementById("pPhone").value.trim();
   const address = document.getElementById("pAddress").value.trim();
 
   // Валидация
-  if (!name) {
-    showProfileError(t("profile.errName") || "Введите имя");
+  if (!firstName) {
+    showProfileError(t("profile.errFirstName") || "Введите имя");
+    return;
+  }
+  if (!lastName) {
+    showProfileError(t("profile.errLastName") || "Введите фамилию");
     return;
   }
   if (!phone) {
@@ -230,7 +244,8 @@ function profileSubmit() {
   }
 
   const res = updateUserProfile(profileSession.login, {
-    fullName: name,
+    firstName: firstName,
+    lastName: lastName,
     phone: phone,
     address: address,
     avatar: _avatarDataUrl,

@@ -5,6 +5,8 @@
 
 .director-body {
   margin: 0;
+  display: grid;
+  grid-template-columns: 280px 1fr;
   min-height: 100vh;
   background: var(--bg);
 }
@@ -19,24 +21,14 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  /* Прилипает к левому краю, всегда на месте */
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  width: 280px;
   height: 100vh;
   overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  z-index: 100;
   animation: slideRight .6s var(--ease-out) both;
+  position: relative;
+  overflow: hidden;
 }
-
-/* Тонкий скроллбар */
-.dir-sidebar::-webkit-scrollbar { width: 6px; }
-.dir-sidebar::-webkit-scrollbar-track { background: transparent; }
-.dir-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
-.dir-sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.35); }
 
 @keyframes slideRight {
   from { transform: translateX(-100%); opacity: 0; }
@@ -47,17 +39,17 @@
 .dir-sidebar::before {
   content: "";
   position: absolute;
-  top: 0; right: 0;
-  width: 200px; height: 200px;
-  background: radial-gradient(circle at 70% 30%, var(--yellow-glow), transparent 70%);
+  top: -100px; right: -80px;
+  width: 240px; height: 240px;
+  background: radial-gradient(circle, var(--yellow-glow), transparent 70%);
   pointer-events: none;
 }
 .dir-sidebar::after {
   content: "";
   position: absolute;
-  bottom: 0; left: 0;
-  width: 180px; height: 180px;
-  background: radial-gradient(circle at 30% 70%, rgba(255, 214, 10, 0.2), transparent 70%);
+  bottom: -80px; left: -60px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(255, 214, 10, 0.25), transparent 70%);
   pointer-events: none;
 }
 .dir-sidebar > * { position: relative; z-index: 1; }
@@ -190,7 +182,6 @@
    MAIN
 ========================================================= */
 .dir-main {
-  margin-left: 280px;
   padding: 32px 40px;
   overflow-x: hidden;
 }
@@ -1008,26 +999,17 @@
    RESPONSIVE
 ========================================================= */
 @media (max-width: 1024px) {
-  /* Сайдбар — выезжающее меню */
+  .director-body { grid-template-columns: 1fr; }
   .dir-sidebar {
-    transform: translateX(-100%);
-    transition: transform .3s cubic-bezier(.4, 0, .2, 1);
-    box-shadow: 4px 0 30px rgba(0, 0, 0, .3);
-    animation: none;
+    position: relative;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
   }
-  body.sidebar-open .dir-sidebar { transform: translateX(0); }
-  .dir-main { margin-left: 0; }
-  /* Затемнение фона */
-  .dir-sidebar-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0, 0, 0, .5);
-    z-index: 99; opacity: 0;
-    transition: opacity .3s;
-  }
-  body.sidebar-open .dir-sidebar-overlay { display: block; opacity: 1; }
-  .dir-burger { display: inline-flex !important; }
-
+  .dir-nav { flex-direction: row; flex-wrap: wrap; flex: 1 1 100%; }
+  .dir-nav-btn { flex: 0 0 auto; }
+  .dir-bottom { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; }
   .dir-grid-2 { grid-template-columns: 1fr; }
   .chat-shell { grid-template-columns: 1fr; }
   .chat-list { display: none; }
@@ -1739,28 +1721,130 @@
 }
 
 /* ============================================================
-   БУРГЕР-КНОПКА для мобильного сайдбара директора
+   ITER7: Таблица смен и зарплаты
 ============================================================ */
-.dir-burger {
-  display: none;
-  position: fixed;
-  top: 16px; left: 16px;
-  z-index: 101;
-  width: 46px; height: 46px;
-  border-radius: 13px;
-  border: none;
-  background: linear-gradient(135deg, #0a1230, #0a2bd6);
-  color: #fff;
-  font-size: 19px;
-  cursor: pointer;
+.att-wage-section { margin: 20px 0; }
+.att-wage-head {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 18px rgba(10, 18, 48, .3);
-  transition: transform .2s;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
 }
-.dir-burger:hover { transform: scale(1.05); }
-.dir-burger:active { transform: scale(.95); }
-body.sidebar-open .dir-burger {
-  left: auto; right: 16px;
-  background: rgba(255, 255, 255, .15);
+.att-wage-head h3 {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+}
+.att-wage-totals {
+  display: flex;
+  gap: 12px;
+}
+.wage-total-box {
+  background: var(--bg-2, #fff);
+  border: 1px solid var(--line, #e3e7f0);
+  border-radius: 13px;
+  padding: 10px 18px;
+  text-align: center;
+  min-width: 90px;
+}
+.wage-total-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink, #0a1230);
+  font-variant-numeric: tabular-nums;
+}
+.wage-total-lbl {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-top: 2px;
+}
+.wage-total-money { background: linear-gradient(135deg, rgba(0,184,122,.1), rgba(0,184,122,.04)); border-color: rgba(0,184,122,.3); }
+.wage-total-money .wage-total-val { color: #00875c; }
+
+.att-wage-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line, #e3e7f0);
+  border-radius: 16px;
+  background: var(--bg-2, #fff);
+}
+.att-wage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  min-width: 680px;
+}
+.att-wage-table thead th {
+  text-align: left;
+  padding: 13px 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted, #8b93a7);
+  border-bottom: 2px solid var(--line, #e3e7f0);
+  white-space: nowrap;
+}
+.att-wage-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, #eef1f6);
+  vertical-align: middle;
+}
+.att-wage-table tbody tr:last-child td { border-bottom: none; }
+.att-wage-table tbody tr:hover { background: var(--bg-3, #f7f9fc); }
+
+.wage-emp-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wage-avatar {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.wage-avatar-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-3, #eef1f6);
+  color: var(--muted, #8b93a7);
+}
+.wage-emp-name { font-weight: 700; color: var(--ink, #0a1230); line-height: 1.2; }
+.wage-emp-login { font-size: 11px; font-weight: 500; }
+.wage-in { color: #00875c; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wage-out { color: #dc2626; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wage-earned { font-weight: 800; color: #00875c; font-variant-numeric: tabular-nums; }
+
+.wage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.wage-badge-ok { background: rgba(0,184,122,.12); color: #00875c; }
+.wage-badge-open { background: rgba(245,158,11,.12); color: #b07515; }
+
+.att-wage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: var(--muted, #8b93a7);
+  text-align: center;
+}
+.att-wage-empty i { font-size: 38px; opacity: .4; }
+
+@media (max-width: 768px) {
+  .att-wage-head { flex-direction: column; align-items: stretch; }
+  .att-wage-totals { justify-content: space-between; }
+  .wage-total-box { flex: 1; min-width: 0; padding: 10px 8px; }
 }

@@ -113,84 +113,6 @@ function removeCompanyLogo(byLogin) {
   addLog(byLogin || "system", "Логотип компании удалён");
 }
 
-/* =========================================================
-   QR-КОД ДЛЯ ЧЕКОВ
-   ---------------------------------------------------------
-   Хранится в настройках:
-   - receiptQrUrl    : ссылка/текст, из которого генерируется QR
-   - receiptQrImage  : (опционально) загруженная картинка QR (Data URL)
-   - receiptQrCaption: подпись под QR (например "Сканируйте для отзыва")
-   Приоритет при показе: картинка (если загружена) > сгенерированный из ссылки.
-========================================================= */
-function getReceiptQr() {
-  try {
-    const s = getSettings();
-    return {
-      url: s.receiptQrUrl || "",
-      image: s.receiptQrImage || "",
-      caption: s.receiptQrCaption || "",
-    };
-  } catch {
-    return { url: "", image: "", caption: "" };
-  }
-}
-
-function saveReceiptQr(data, byLogin) {
-  const patch = {};
-  if (data.url != null) patch.receiptQrUrl = data.url;
-  if (data.image != null) patch.receiptQrImage = data.image;
-  if (data.caption != null) patch.receiptQrCaption = data.caption;
-  saveSettings(patch, byLogin);
-  addLog(byLogin || "system", "QR-код чека обновлён");
-}
-
-function removeReceiptQr(byLogin) {
-  const cur = getSettings();
-  delete cur.receiptQrUrl;
-  delete cur.receiptQrImage;
-  delete cur.receiptQrCaption;
-  localStorage.setItem(AUTH_KEYS.SETTINGS, JSON.stringify(cur));
-  addLog(byLogin || "system", "QR-код чека удалён");
-}
-
-/**
- * Возвращает HTML блока QR для вставки внизу чека.
- * Если есть загруженная картинка — показывает её.
- * Если есть только ссылка — рисует QR через встроенный генератор (window.KusQR).
- * Если ничего нет — возвращает пустую строку.
- */
-function buildReceiptQrHtml() {
-  const qr = getReceiptQr();
-  let imgSrc = "";
-
-  if (qr.image) {
-    imgSrc = qr.image;
-  } else if (qr.url && typeof window !== "undefined" && window.KusQR) {
-    try {
-      imgSrc = window.KusQR.toDataURL(qr.url, { size: 220, margin: 2 });
-    } catch (e) {
-      console.warn("[QR] generation failed:", e);
-    }
-  }
-
-  if (!imgSrc) return "";
-
-  const caption = qr.caption || "";
-  return `
-    <div class="receipt-qr">
-      <div class="receipt-qr-divider"></div>
-      <img class="receipt-qr-img" src="${imgSrc}" alt="QR" />
-      ${caption ? `<div class="receipt-qr-caption">${escapeHtmlSafe(caption)}</div>` : ""}
-    </div>
-  `;
-}
-
-/* Локальный escape (auth.js может загружаться без app.js) */
-function escapeHtmlSafe(s) {
-  if (s == null) return "";
-  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
 /**
  * Заменяет все элементы <i class="fa-broom"></i> (в шапке/брендах) на тег <img>
  * с логотипом из настроек. Вызывать после рендера шапки и после изменений настроек.
@@ -433,7 +355,14 @@ function updateUserProfile(login, profile, byLogin) {
   const u = users.find(x => x.login === login);
   if (!u) return { ok: false, error: "Пользователь не найден" };
 
-  if (profile.fullName != null) u.fullName = profile.fullName.trim();
+  if (profile.firstName != null) u.firstName = profile.firstName.trim();
+  if (profile.lastName != null) u.lastName = profile.lastName.trim();
+  // fullName собираем из имени и фамилии (если они переданы)
+  if (profile.firstName != null || profile.lastName != null) {
+    u.fullName = [u.firstName || "", u.lastName || ""].join(" ").trim();
+  } else if (profile.fullName != null) {
+    u.fullName = profile.fullName.trim();
+  }
   if (profile.phone != null) u.phone = profile.phone.trim();
   if (profile.address != null) u.address = profile.address.trim();
   if (profile.avatar != null) u.avatar = profile.avatar;
@@ -1050,6 +979,86 @@ function getLastAttendanceForUser(login) {
     if (list[i].login === login) return list[i];
   }
   return null;
+}
+
+/* =========================================================
+   ТУРНИКЕТ: ПАРОЛЬ + РАСЧЁТ ЗАРАБОТКА
+   ---------------------------------------------------------
+   - Пароль турникета (нужен при приходе и уходе)
+   - Дневная ставка: начисляется за каждый завершённый день
+     (есть и приход, и уход в эту дату)
+========================================================= */
+const TURNSTILE_PASSWORD = "6699";          // код подтверждения прихода/ухода
+const DAILY_WAGE = 200000;                   // сум за отработанный день
+
+function checkTurnstilePassword(pw) {
+  return String(pw).trim() === TURNSTILE_PASSWORD;
+}
+
+/* Возвращает локальную дату записи в формате YYYY-MM-DD */
+function _attDateKey(entry) {
+  const d = new Date(entry.timestamp || entry.createdAt);
+  // локальная дата (не UTC) чтобы не путать смены
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/* Группирует записи турникета сотрудника по дням и считает:
+   - первый приход, последний уход, отработанные часы, заработок
+   Возвращает массив объектов-смен (по дате). */
+function getWorkDaysForUser(login) {
+  const list = getAttendance()
+    .filter(a => a.login === login)
+    .sort((a, b) => new Date(a.timestamp || a.createdAt) - new Date(b.timestamp || b.createdAt));
+
+  const byDate = {};
+  list.forEach(a => {
+    const key = _attDateKey(a);
+    if (!byDate[key]) byDate[key] = { date: key, ins: [], outs: [] };
+    if (a.type === "check_in") byDate[key].ins.push(a);
+    else if (a.type === "check_out") byDate[key].outs.push(a);
+  });
+
+  const days = Object.values(byDate).map(d => {
+    const firstIn = d.ins.length ? d.ins[0] : null;
+    const lastOut = d.outs.length ? d.outs[d.outs.length - 1] : null;
+    let hours = 0;
+    if (firstIn && lastOut) {
+      const ms = new Date(lastOut.timestamp) - new Date(firstIn.timestamp);
+      hours = ms > 0 ? ms / (1000 * 60 * 60) : 0;
+    }
+    // День считается оплаченным если есть И приход И уход
+    const completed = !!(firstIn && lastOut);
+    return {
+      date: d.date,
+      checkIn: firstIn ? firstIn.timestamp : null,
+      checkOut: lastOut ? lastOut.timestamp : null,
+      hours: Math.round(hours * 10) / 10,
+      completed: completed,
+      earned: completed ? DAILY_WAGE : 0,
+    };
+  });
+
+  // Свежие дни сверху
+  days.sort((a, b) => (a.date < b.date ? 1 : -1));
+  return days;
+}
+
+/* Сводка по сотруднику: всего заработано, отработано дней, заработок за сегодня */
+function getWageSummaryForUser(login) {
+  const days = getWorkDaysForUser(login);
+  const todayKey = _attDateKey({ timestamp: new Date().toISOString() });
+  let totalEarned = 0, daysWorked = 0, todayEarned = 0;
+  days.forEach(d => {
+    if (d.completed) {
+      totalEarned += d.earned;
+      daysWorked++;
+      if (d.date === todayKey) todayEarned = d.earned;
+    }
+  });
+  return { totalEarned, daysWorked, todayEarned, dailyWage: DAILY_WAGE };
 }
 
 /* =========================================================

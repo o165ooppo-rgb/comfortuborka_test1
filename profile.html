@@ -39,21 +39,41 @@
 
       <!-- Аватар -->
       <div class="profile-avatar-section">
-        <div class="profile-avatar-box" id="profileAvatarBox" onclick="document.getElementById('avatarFileInput').click()">
+        <div class="profile-avatar-box" id="profileAvatarBox">
           <div class="profile-avatar-empty" id="profileAvatarEmpty">
-            <i class="fa-solid fa-camera"></i>
-            <span data-i18n="profile.addPhoto">Добавить фото</span>
+            <i class="fa-solid fa-user"></i>
+            <span data-i18n="profile.photoLabel">Фото профиля</span>
           </div>
           <img id="profileAvatarImg" style="display:none" alt="avatar"/>
         </div>
-        <input type="file" id="avatarFileInput" accept="image/*" capture="user" style="display:none" onchange="profileHandleAvatar(event)"/>
-        <div class="profile-avatar-hint muted" data-i18n="profile.photoHint">Нажмите чтобы выбрать из галереи или снять камерой</div>
+
+        <!-- Два отдельных input: камера и галерея -->
+        <input type="file" id="avatarCameraInput" accept="image/*" capture="user" style="display:none" onchange="profileHandleAvatar(event)"/>
+        <input type="file" id="avatarGalleryInput" accept="image/*" style="display:none" onchange="profileHandleAvatar(event)"/>
+
+        <div class="profile-photo-buttons">
+          <button type="button" class="primary profile-photo-btn" onclick="document.getElementById('avatarCameraInput').click()">
+            <i class="fa-solid fa-camera"></i>
+            <span data-i18n="profile.takePhoto">Снять фото</span>
+          </button>
+          <button type="button" class="ghost-btn profile-photo-btn" onclick="document.getElementById('avatarGalleryInput').click()">
+            <i class="fa-solid fa-images"></i>
+            <span data-i18n="profile.fromGallery">Из галереи</span>
+          </button>
+        </div>
+        <div class="profile-avatar-hint muted" data-i18n="profile.photoHint2">Сделайте селфи камерой или выберите готовое фото</div>
       </div>
 
       <!-- Имя -->
       <label class="field">
-        <span class="field-label"><i class="fa-solid fa-user"></i> <span data-i18n="profile.fullName">ФИО / Имя</span></span>
-        <input type="text" id="pName" autocomplete="name" data-i18n-ph="profile.fullNamePh" placeholder="Ваше полное имя"/>
+        <span class="field-label"><i class="fa-solid fa-user"></i> <span data-i18n="profile.firstName">Имя</span> <span class="req">*</span></span>
+        <input type="text" id="pFirstName" autocomplete="given-name" data-i18n-ph="profile.firstNamePh" placeholder="Например: Алишер"/>
+      </label>
+
+      <!-- Фамилия -->
+      <label class="field">
+        <span class="field-label"><i class="fa-solid fa-user"></i> <span data-i18n="profile.lastName">Фамилия</span> <span class="req">*</span></span>
+        <input type="text" id="pLastName" autocomplete="family-name" data-i18n-ph="profile.lastNamePh" placeholder="Например: Каримов"/>
       </label>
 
       <!-- Телефон -->

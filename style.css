@@ -3024,3 +3024,120 @@ input::placeholder { color: var(--muted); }
     border-top: 1px dashed #999;
   }
 }
+
+/* ============================================================
+   ITER7: Имя/Фамилия, фото профиля, кошелёк, пароль турникета
+============================================================ */
+
+/* Звёздочка обязательного поля */
+.req { color: #ef4444; font-weight: 800; }
+
+/* Кнопки выбора фото в анкете */
+.profile-photo-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  width: 100%;
+}
+.profile-photo-btn {
+  flex: 1;
+  justify-content: center;
+  font-size: 13.5px;
+  padding: 11px 14px;
+}
+.profile-avatar-box .profile-avatar-empty i { font-size: 30px; }
+
+/* Фото в приветствии воркера (вместо иконки руки) */
+.worker-greet-icon.has-photo {
+  padding: 0;
+  overflow: hidden;
+}
+.worker-greet-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+/* Аватар-фото в user-chip (шапка) */
+.user-chip-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+/* Кошелёк в шапке */
+.wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #00875c, #00b87a);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 184, 122, .3);
+}
+.wallet-chip > i { font-size: 17px; }
+.wallet-chip-amount {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.wallet-chip-label {
+  font-size: 10px;
+  opacity: .85;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-top: 2px;
+}
+
+/* Карточка баланса в worker-stats */
+.worker-stat-icon.worker-stat-money {
+  background: linear-gradient(135deg, #00875c, #00b87a);
+  color: #fff;
+}
+.worker-stat-wallet .worker-stat-value {
+  color: #00875c;
+}
+
+/* Поле пароля в турникете */
+.ts-password-block {
+  margin: 14px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(30, 64, 255, .05), rgba(30, 64, 255, .02));
+  border: 1.5px solid rgba(30, 64, 255, .25);
+  border-radius: 14px;
+}
+.ts-password-block .label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--blue, #1e40ff);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.ts-password-input {
+  width: 100%;
+  padding: 13px 16px;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: .3em;
+  border: 2px solid var(--line, #e3e7f0);
+  border-radius: 12px;
+  background: #fff;
+}
+.ts-password-input:focus {
+  outline: none;
+  border-color: var(--blue, #1e40ff);
+}
+.ts-password-hint {
+  font-size: 11.5px;
+  text-align: center;
+  margin-top: 8px;
+}

@@ -1019,7 +1019,134 @@ document.querySelectorAll(".modal").forEach(m => {
 function renderAttendance() {
   fillAttendanceUserFilter();
   renderAttendanceTodaySummary();
+  renderWageTable();
   renderAttendanceGrid();
+}
+
+/* =========================================================
+   ТАБЛИЦА СМЕН И ЗАРПЛАТЫ (директору)
+   ---------------------------------------------------------
+   Показывает по каждому сотруднику: дни работы, приход, уход,
+   часы, заработок. Учитывает фильтр по сотруднику и датам.
+========================================================= */
+function renderWageTable() {
+  const wrap = document.getElementById("attWageSection");
+  if (!wrap) return;
+  if (typeof getWorkDaysForUser !== "function") { wrap.innerHTML = ""; return; }
+
+  const filterLogin = document.getElementById("attFilterUser")?.value || "";
+  const from = document.getElementById("attFilterFrom")?.value || "";
+  const to = document.getElementById("attFilterTo")?.value || "";
+
+  // Список сотрудников (с учётом фильтра)
+  const users = getUsers().filter(u =>
+    u.role === "worker" || u.role === "accountant" || u.role === "supervisor"
+  );
+  let targets = filterLogin ? users.filter(u => u.login === filterLogin) : users;
+
+  // Собираем смены
+  const rows = [];
+  let grandEarned = 0, grandDays = 0, grandHours = 0;
+
+  targets.forEach(u => {
+    let days = getWorkDaysForUser(u.login);
+    // фильтр по датам
+    if (from) days = days.filter(d => d.date >= from);
+    if (to) days = days.filter(d => d.date <= to);
+    if (days.length === 0) return;
+
+    days.forEach(d => {
+      rows.push({
+        login: u.login,
+        name: u.fullName || u.login,
+        avatar: u.avatar || "",
+        date: d.date,
+        checkIn: d.checkIn,
+        checkOut: d.checkOut,
+        hours: d.hours,
+        completed: d.completed,
+        earned: d.earned,
+      });
+      if (d.completed) { grandEarned += d.earned; grandDays++; grandHours += d.hours; }
+    });
+  });
+
+  if (rows.length === 0) {
+    wrap.innerHTML = `
+      <div class="att-wage-empty">
+        <i class="fa-regular fa-clock"></i>
+        <span>${escapeHtml(t("dir.wage.empty") || "Нет данных о сменах за выбранный период")}</span>
+      </div>`;
+    return;
+  }
+
+  // Сортируем: свежие даты сверху, затем по имени
+  rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.name.localeCompare(b.name, "ru")));
+
+  const fmtTime = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  };
+  const fmtDate = (key) => {
+    const [y, m, dd] = key.split("-");
+    return `${dd}.${m}.${y.slice(2)}`;
+  };
+
+  const rowsHtml = rows.map(r => {
+    const avatarCell = r.avatar
+      ? `<img src="${r.avatar}" class="wage-avatar" alt=""/>`
+      : `<div class="wage-avatar wage-avatar-empty"><i class="fa-solid fa-user"></i></div>`;
+    const statusBadge = r.completed
+      ? `<span class="wage-badge wage-badge-ok"><i class="fa-solid fa-check"></i> ${escapeHtml(t("dir.wage.completed") || "Смена закрыта")}</span>`
+      : `<span class="wage-badge wage-badge-open"><i class="fa-solid fa-hourglass-half"></i> ${escapeHtml(t("dir.wage.open") || "Не закрыта")}</span>`;
+    return `
+      <tr>
+        <td class="wage-emp-cell">${avatarCell}<div class="wage-emp-name">${escapeHtml(r.name)}<div class="muted wage-emp-login">@${escapeHtml(r.login)}</div></div></td>
+        <td>${escapeHtml(fmtDate(r.date))}</td>
+        <td class="wage-in">${fmtTime(r.checkIn)}</td>
+        <td class="wage-out">${fmtTime(r.checkOut)}</td>
+        <td>${r.hours > 0 ? r.hours + " ч" : "—"}</td>
+        <td>${statusBadge}</td>
+        <td class="wage-earned">${r.earned > 0 ? r.earned.toLocaleString("ru-RU") : "0"}</td>
+      </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <div class="att-wage-head">
+      <h3><i class="fa-solid fa-money-bill-trend-up"></i> ${escapeHtml(t("dir.wage.title") || "Смены и зарплата")}</h3>
+      <div class="att-wage-totals">
+        <div class="wage-total-box">
+          <div class="wage-total-val">${grandDays}</div>
+          <div class="wage-total-lbl muted">${escapeHtml(t("dir.wage.totalDays") || "Смен")}</div>
+        </div>
+        <div class="wage-total-box">
+          <div class="wage-total-val">${(Math.round(grandHours * 10) / 10)}</div>
+          <div class="wage-total-lbl muted">${escapeHtml(t("dir.wage.totalHours") || "Часов")}</div>
+        </div>
+        <div class="wage-total-box wage-total-money">
+          <div class="wage-total-val">${grandEarned.toLocaleString("ru-RU")}</div>
+          <div class="wage-total-lbl muted">${escapeHtml(t("dir.wage.totalEarned") || "Начислено, сум")}</div>
+        </div>
+      </div>
+    </div>
+    <div class="att-wage-table-wrap">
+      <table class="att-wage-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(t("dir.wage.employee") || "Сотрудник")}</th>
+            <th>${escapeHtml(t("dir.wage.date") || "Дата")}</th>
+            <th>${escapeHtml(t("dir.wage.in") || "Пришёл")}</th>
+            <th>${escapeHtml(t("dir.wage.out") || "Ушёл")}</th>
+            <th>${escapeHtml(t("dir.wage.hours") || "Часы")}</th>
+            <th>${escapeHtml(t("dir.wage.status") || "Статус")}</th>
+            <th>${escapeHtml(t("dir.wage.earned") || "Заработок")}</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function fillAttendanceUserFilter() {
@@ -1572,35 +1699,3 @@ function sendReceiptToStaff() {
   closeReceipt();
   showToast("success", t("receipt.sent"), t("receipt.sentTo", { n: toLogins.length }));
 }
-
-/* =========================================================
-   МОБИЛЬНЫЙ САЙДБАР — выезжающее меню (бургер)
-========================================================= */
-function dirToggleSidebar() {
-  document.body.classList.toggle("sidebar-open");
-  var icon = document.getElementById("dirBurgerIcon");
-  if (icon) {
-    var open = document.body.classList.contains("sidebar-open");
-    icon.className = open ? "fa-solid fa-xmark" : "fa-solid fa-bars";
-  }
-}
-function dirCloseSidebar() {
-  document.body.classList.remove("sidebar-open");
-  var icon = document.getElementById("dirBurgerIcon");
-  if (icon) icon.className = "fa-solid fa-bars";
-}
-document.addEventListener("DOMContentLoaded", function () {
-  var sidebar = document.querySelector(".dir-sidebar");
-  if (!sidebar) return;
-  sidebar.addEventListener("click", function (e) {
-    if (window.innerWidth > 1024) return;
-    var el = e.target.closest("a, button");
-    // не закрываем при переключении языка
-    if (el && !el.closest(".lang-switcher") && !el.closest("[data-lang]")) {
-      setTimeout(dirCloseSidebar, 150);
-    }
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") dirCloseSidebar();
-  });
-});

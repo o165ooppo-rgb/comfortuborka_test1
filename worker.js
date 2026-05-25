@@ -80,10 +80,32 @@ function renderNav() {
   const nav = document.getElementById("navRight");
   if (!nav) return;
   const langSwitcher = typeof renderLangSwitcher === "function" ? renderLangSwitcher() : "";
+
+  // Аватар сотрудника (фото или иконка)
+  const u = (typeof getUserByLogin === "function") ? getUserByLogin(session.login) : null;
+  const avatar = (u && u.avatar)
+    ? `<div class="user-chip-avatar"><img src="${u.avatar}" alt=""/></div>`
+    : `<div class="user-chip-avatar"><i class="fa-solid fa-user"></i></div>`;
+
+  // Кошелёк: всего заработано
+  let walletHtml = "";
+  if (typeof getWageSummaryForUser === "function") {
+    const w = getWageSummaryForUser(session.login);
+    walletHtml = `
+      <div class="wallet-chip" title="${t("wallet.title") || "Кошелёк"}">
+        <i class="fa-solid fa-wallet"></i>
+        <div class="wallet-chip-info">
+          <div class="wallet-chip-amount">${w.totalEarned.toLocaleString("ru-RU")}</div>
+          <div class="wallet-chip-label">${t("wallet.sum") || "сум"}</div>
+        </div>
+      </div>`;
+  }
+
   nav.innerHTML = `
     ${langSwitcher}
+    ${walletHtml}
     <div class="user-chip" title="${escapeHtml(session.fullName || session.login)}">
-      <div class="user-chip-avatar"><i class="fa-solid fa-user"></i></div>
+      ${avatar}
       <div class="user-chip-info">
         <div class="user-chip-name">${escapeHtml(session.fullName || session.login)}</div>
         <div class="user-chip-role muted">${roleLabel(session.role)}</div>
@@ -99,6 +121,19 @@ function renderNav() {
 function renderWorkerHero() {
   const nameEl = document.getElementById("workerWelcomeName");
   if (nameEl) nameEl.textContent = session.fullName || session.login;
+
+  // Фото сотрудника вместо иконки-приветствия
+  const avatarBox = document.getElementById("workerGreetAvatar");
+  if (avatarBox) {
+    const u = (typeof getUserByLogin === "function") ? getUserByLogin(session.login) : null;
+    if (u && u.avatar) {
+      avatarBox.innerHTML = `<img src="${u.avatar}" alt="${escapeHtml(session.fullName || "")}" class="worker-greet-photo"/>`;
+      avatarBox.classList.add("has-photo");
+    } else {
+      avatarBox.innerHTML = `<i class="fa-solid fa-hand-wave"></i>`;
+      avatarBox.classList.remove("has-photo");
+    }
+  }
 }
 
 function doLogout() {
@@ -126,6 +161,13 @@ function renderStats() {
   setText("wstatTasksPending", pending);
   setText("wstatTasksDone", done);
   setText("wstatAttToday", todayAtts);
+
+  // Заработано сегодня
+  if (typeof getWageSummaryForUser === "function") {
+    const w = getWageSummaryForUser(session.login);
+    const earnEl = document.getElementById("wstatTodayEarned");
+    if (earnEl) earnEl.textContent = w.todayEarned.toLocaleString("ru-RU");
+  }
 }
 
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
@@ -429,6 +471,7 @@ function openTurnstile(type) {
   document.getElementById("tsCaptureBtn").style.display = "inline-flex";
   document.getElementById("tsRetakeBtn").style.display = "none";
   document.getElementById("tsSubmitBtn").style.display = "none";
+  var _pwb = document.getElementById("tsPasswordBlock"); if (_pwb) _pwb.style.display = "none";
   setTsStep(1);
 
   document.getElementById("turnstileModal").classList.add("open");
@@ -470,6 +513,13 @@ function tsCapturePhoto() {
   document.getElementById("tsCaptureBtn").style.display = "none";
   document.getElementById("tsRetakeBtn").style.display = "inline-flex";
   document.getElementById("tsSubmitBtn").style.display = "inline-flex";
+  // Показываем поле пароля
+  const pwBlock = document.getElementById("tsPasswordBlock");
+  if (pwBlock) {
+    pwBlock.style.display = "block";
+    const pwInput = document.getElementById("tsPasswordInput");
+    if (pwInput) pwInput.value = "";
+  }
   stopTurnstileCamera();
   setTsStep(2);
   fetchTurnstileGeo();
@@ -484,6 +534,7 @@ function tsRetakePhoto() {
   document.getElementById("tsCaptureBtn").style.display = "inline-flex";
   document.getElementById("tsRetakeBtn").style.display = "none";
   document.getElementById("tsSubmitBtn").style.display = "none";
+  var _pwb = document.getElementById("tsPasswordBlock"); if (_pwb) _pwb.style.display = "none";
   setTsStep(1);
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
     .then(stream => { _tsStream = stream; document.getElementById("tsVideo").srcObject = stream; })
@@ -565,6 +616,25 @@ function tsSubmit() {
     return;
   }
 
+  // Проверка кода-пароля турникета
+  const pwInput = document.getElementById("tsPasswordInput");
+  const pw = pwInput ? pwInput.value.trim() : "";
+  if (!pw) {
+    errBox.textContent = t("ts.errNoPassword") || "Введите код подтверждения";
+    errBox.style.display = "block";
+    if (pwInput) pwInput.focus();
+    return;
+  }
+  const passOk = (typeof checkTurnstilePassword === "function")
+    ? checkTurnstilePassword(pw)
+    : (pw === "6699");
+  if (!passOk) {
+    errBox.textContent = t("ts.errBadPassword") || "Неверный код. Попробуйте ещё раз.";
+    errBox.style.display = "block";
+    if (pwInput) { pwInput.value = ""; pwInput.focus(); }
+    return;
+  }
+
   const record = {
     login: session.login,
     fullName: session.fullName,
@@ -583,14 +653,24 @@ function tsSubmit() {
     return;
   }
 
+  // Если ушёл — посчитаем заработок за день и покажем в тосте
+  let extraMsg = t("ts.successDesc");
+  if (_tsType === "check_out" && typeof getWageSummaryForUser === "function") {
+    const w = getWageSummaryForUser(session.login);
+    if (w.todayEarned > 0) {
+      extraMsg = (t("ts.earnedToday") || "Начислено за сегодня:") + " " + w.todayEarned.toLocaleString("ru-RU") + " " + (t("wallet.sum") || "сум");
+    }
+  }
+
   showToast("success",
     _tsType === "check_in" ? t("ts.successIn") : t("ts.successOut"),
-    t("ts.successDesc"));
+    extraMsg);
   closeTurnstile();
 
-  // После прихода — показать кнопку «Ушёл»
+  // Обновляем кнопки, статистику и кошелёк
   refreshArriveLeaveButtons();
   renderStats();
+  renderNav();
 }
 
 function closeTurnstile() {

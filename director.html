@@ -22,13 +22,6 @@
 </head>
 <body class="director-body">
 
-<!-- Бургер-кнопка (только планшет/телефон) -->
-<button class="dir-burger" id="dirBurger" onclick="dirToggleSidebar()" aria-label="Меню">
-  <i class="fa-solid fa-bars" id="dirBurgerIcon"></i>
-</button>
-<div class="dir-sidebar-overlay" id="dirSidebarOverlay" onclick="dirToggleSidebar()"></div>
-
-
   <aside class="dir-sidebar">
     <div class="dir-brand">
       <i class="fa-solid fa-shield-halved" data-brand-icon></i>
@@ -191,6 +184,9 @@
           <input type="date" id="attFilterTo" onchange="renderAttendance()"/>
         </div>
       </div>
+
+      <!-- Таблица смен и зарплаты по сотрудникам -->
+      <div id="attWageSection" class="att-wage-section"></div>
 
       <div id="attendanceGrid" class="attendance-grid"></div>
     </section>
