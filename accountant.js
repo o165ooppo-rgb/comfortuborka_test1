@@ -141,6 +141,9 @@ const translations = {
   uz: {
     app_title: "Moliya Dashboard",
     app_subtitle: "Daromad • Xarajat • Foyda",
+    "acc.brandSub": "Buxgalteriya",
+    click_to_view: "Tafsilotlar uchun bosing",
+    click_for_breakdown: "Taqsimot uchun bosing",
     back_home: "Bosh sahifa",
     filters_title: "⚡ Aqlli filtrlar",
     filters_subtitle: "Real vaqtda tahlil",
@@ -256,6 +259,9 @@ const translations = {
   en: {
     app_title: "Finance Dashboard",
     app_subtitle: "Income • Expenses • Profit",
+    "acc.brandSub": "Accounting",
+    click_to_view: "Click to view details",
+    click_for_breakdown: "Click for breakdown",
     back_home: "← Home",
     filters_title: "⚡ Smart Filters",
     filters_subtitle: "Real-time analytics",
@@ -371,6 +377,9 @@ const translations = {
   ru: {
     app_title: "Finance Dashboard",
     app_subtitle: "Доходы • Расходы • Прибыль",
+    "acc.brandSub": "Бухгалтерия",
+    click_to_view: "Нажмите чтобы увидеть детали",
+    click_for_breakdown: "Нажмите для разбивки",
     back_home: "← Главная",
     filters_title: "⚡ Умные фильтры",
     filters_subtitle: "Аналитика в реальном времени",

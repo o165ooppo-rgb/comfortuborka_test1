@@ -1904,6 +1904,55 @@ input::placeholder { color: var(--muted); }
   font-weight: 800;
 }
 
+/* CRM: баннер скидки клиента в форме заказа */
+.order-discount-banner {
+  margin-top: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(30, 64, 255, .07);
+  border: 1px solid rgba(30, 64, 255, .18);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.order-discount-banner .odb-main {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.order-discount-banner.has-discount {
+  background: rgba(245, 158, 11, .12);
+  border-color: rgba(245, 158, 11, .35);
+  color: #9a6700;
+}
+.order-discount-banner.applied {
+  background: rgba(0, 184, 122, .12);
+  border-color: rgba(0, 184, 122, .35);
+  color: #00875c;
+}
+.order-discount-banner .odb-apply {
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12.5px;
+  padding: 8px 13px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.order-discount-banner .odb-apply:hover { filter: brightness(1.05); }
+
 .order-info {
   display: flex;
   align-items: center;

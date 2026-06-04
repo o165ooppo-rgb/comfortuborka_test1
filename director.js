@@ -49,7 +49,7 @@ function initDirector() {
       if (chatPartner) renderChatMessages();
     }
     if (activeTab === "orders" && e.key === "kus_all_orders") renderDirOrders();
-    if (activeTab === "clients" && e.key === "kus_clients_db") renderClients();
+    if (activeTab === "clients" && (e.key === "kus_all_orders" || e.key === "kus_client_prefs")) renderClients();
     if (activeTab === "services" && e.key === "kus_services_v2") renderServicesEditor();
     if (activeTab === "attendance" && e.key === "kus_attendance") renderAttendance();
     if (activeTab === "logs" && e.key === "kus_action_logs") renderFullLogs();
@@ -101,12 +101,18 @@ function renderDashboard() {
   const orders = getAllOrders();
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayOrders = orders.filter(o => new Date(o.createdAt) >= todayStart);
-  const revenue = todayOrders.filter(o => o.payment === "paid").reduce((s, o) => s + (o.price || o.total || 0), 0);
+  // Общий оборот компании — все деньги, поступившие в компанию (брутто, без вычета расходов и прибыли).
+  // Оплаченный заказ — учитываем всю сумму; неоплаченный — только внесённый аванс; черновик — 0.
+  const turnover = orders.reduce((s, o) => {
+    if (o.payment === "paid") return s + Number(o.price || o.total || 0);
+    if (o.payment === "unpaid") return s + Number(o.advance || 0);
+    return s;
+  }, 0);
 
   document.getElementById("statEmployees").textContent = users.length;
   document.getElementById("statOnline").textContent = onlineUsers.length;
   document.getElementById("statOrders").textContent = todayOrders.length;
-  document.getElementById("statRevenue").textContent = revenue.toLocaleString("ru-RU");
+  document.getElementById("statRevenue").textContent = turnover.toLocaleString("ru-RU");
 
   // Последние действия
   const recent = getLogs().slice(0, 8);
@@ -173,7 +179,7 @@ function renderEmployees() {
       : escapeHtml(initials);
 
     return `
-      <div class="employee-card">
+      <div class="employee-card employee-card-clickable" onclick="openEmployeeDetail('${escapeHtml(u.login)}')" title="${escapeHtml(t("dir.emp.viewDetails") || "Открыть карточку")}">
         <div class="employee-head">
           <div class="avatar avatar-lg ${hasAvatar ? 'avatar-has-img' : ''}">
             ${avatarInner}
@@ -192,6 +198,127 @@ function renderEmployees() {
           <div><i class="fa-solid fa-circle ${online ? 'st-online' : 'st-offline'}"></i> ${online ? (t("common.online") || 'В сети') : escapeHtml(lastSeen)}</div>
         </div>
         <div class="employee-actions">
+          <button class="ghost-btn" onclick="event.stopPropagation(); dirChangePassword('${escapeHtml(u.login)}')">
+            <i class="fa-solid fa-key"></i> ${escapeHtml(t("dir.emp.password") || "Пароль")}
+          </button>
+          <button class="danger-btn" onclick="event.stopPropagation(); dirDeleteUser('${escapeHtml(u.login)}')">
+            <i class="fa-solid fa-trash"></i> ${escapeHtml(t("dir.emp.delete") || "Удалить")}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+/* =========================================================
+   ПОДРОБНАЯ КАРТОЧКА СОТРУДНИКА (по клику)
+========================================================= */
+function openEmployeeDetail(login) {
+  const u = getUserByLogin(login);
+  if (!u) return;
+
+  const online = isOnline(u.login);
+  const lastSeen = formatLastSeen(u.login);
+  const initials = (u.fullName || u.login).slice(0, 2).toUpperCase();
+  const hasAvatar = !!u.avatar;
+  const profileDone = (u.role === "director") || u.profileComplete === true;
+  const wage = (typeof getWageSummaryForUser === "function") ? getWageSummaryForUser(u.login) : null;
+
+  const photo = hasAvatar
+    ? `<img src="${escapeHtml(u.avatar)}" alt="" class="emp-detail-photo-img"/>`
+    : `<div class="emp-detail-photo-fallback">${escapeHtml(initials)}</div>`;
+
+  // одна строка анкеты (не выводится если значения нет)
+  function row(icon, label, value, extra) {
+    if (!value) return "";
+    return `<div class="emp-detail-row">
+      <div class="emp-detail-row-icon"><i class="fa-solid ${icon}"></i></div>
+      <div class="emp-detail-row-main">
+        <div class="emp-detail-row-label">${escapeHtml(label)}</div>
+        <div class="emp-detail-row-value">${value}</div>
+      </div>
+      ${extra || ""}
+    </div>`;
+  }
+
+  // дата рождения + возраст
+  function formatBirth(d) {
+    try {
+      const dt = new Date(d);
+      const s = dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
+      const now = new Date();
+      let age = now.getFullYear() - dt.getFullYear();
+      const m = now.getMonth() - dt.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < dt.getDate())) age--;
+      return (age >= 0 && age < 120) ? `${s} (${age} ${t("dir.emp.yearsOld") || "лет"})` : s;
+    } catch (e) { return String(d); }
+  }
+
+  const geoVal = (u.lat != null && u.lng != null)
+    ? `${Number(u.lat).toFixed(5)}, ${Number(u.lng).toFixed(5)}`
+    : "";
+  const geoExtra = geoVal
+    ? `<a class="emp-detail-map-btn" href="https://www.google.com/maps?q=${Number(u.lat)},${Number(u.lng)}" target="_blank" rel="noopener"><i class="fa-solid fa-map-location-dot"></i> ${escapeHtml(t("dir.emp.viewOnMap") || "На карте")}</a>`
+    : "";
+
+  const statusVal = online
+    ? `<span class="emp-detail-status st-online"><i class="fa-solid fa-circle"></i> ${escapeHtml(t("common.online") || "В сети")}</span>`
+    : `<span class="emp-detail-status st-offline"><i class="fa-solid fa-circle"></i> ${escapeHtml(lastSeen)}</span>`;
+
+  let memberSince = "";
+  if (u.createdAt) {
+    try { memberSince = new Date(u.createdAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" }); }
+    catch (e) { memberSince = ""; }
+  }
+
+  // блок заработка/смен — только для воркеров и супервайзеров
+  let wageBlock = "";
+  if (wage && (u.role === "worker" || u.role === "supervisor")) {
+    wageBlock = `
+      <div class="emp-detail-stats">
+        <div class="emp-detail-stat">
+          <div class="emp-detail-stat-num">${wage.daysWorked}</div>
+          <div class="emp-detail-stat-label">${escapeHtml(t("dir.emp.daysWorked") || "Отработано дней")}</div>
+        </div>
+        <div class="emp-detail-stat">
+          <div class="emp-detail-stat-num">${Number(wage.totalEarned || 0).toLocaleString("ru-RU")}</div>
+          <div class="emp-detail-stat-label">${escapeHtml(t("dir.emp.totalEarned") || "Заработано (Сум)")}</div>
+        </div>
+        <div class="emp-detail-stat">
+          <div class="emp-detail-stat-num">${Number(wage.todayEarned || 0).toLocaleString("ru-RU")}</div>
+          <div class="emp-detail-stat-label">${escapeHtml(t("dir.emp.todayEarned") || "Сегодня (Сум)")}</div>
+        </div>
+      </div>`;
+  }
+
+  const body = `
+    <div class="emp-detail">
+      <div class="emp-detail-left">
+        <div class="emp-detail-photo ${hasAvatar ? 'has-img' : ''}">
+          ${photo}
+          ${online ? '<span class="emp-detail-online-dot"></span>' : ''}
+        </div>
+        <div class="emp-detail-name">${escapeHtml(u.fullName || u.login)}</div>
+        <div class="emp-detail-login">@${escapeHtml(u.login)}</div>
+        <span class="employee-role role-${u.role} emp-detail-role">${roleLabel(u.role)}</span>
+        ${!profileDone ? `<div class="emp-detail-pending"><i class="fa-solid fa-hourglass-half"></i> ${escapeHtml(t("dir.emp.notFilled") || "Профиль не заполнен")}</div>` : ''}
+      </div>
+      <div class="emp-detail-right">
+        <h2 class="emp-detail-heading">${escapeHtml(t("dir.emp.detailTitle") || "Анкета сотрудника")}</h2>
+        <div class="emp-detail-rows">
+          ${row("fa-user", t("profile.firstName") || "Имя", u.firstName ? escapeHtml(u.firstName) : "")}
+          ${row("fa-user", t("profile.lastName") || "Фамилия", u.lastName ? escapeHtml(u.lastName) : "")}
+          ${row("fa-cake-candles", t("dir.emp.birthDate") || "Дата рождения", u.birthDate ? escapeHtml(formatBirth(u.birthDate)) : "")}
+          ${row("fa-at", t("login.login") || "Логин", escapeHtml(u.login))}
+          ${row("fa-phone", t("profile.phone") || "Номер телефона", u.phone ? `<a href="tel:${escapeHtml(u.phone)}">${escapeHtml(u.phone)}</a>` : "")}
+          ${row("fa-location-dot", t("receipt.address") || "Адрес", u.address ? escapeHtml(u.address) : "")}
+          ${row("fa-map-location-dot", t("dir.emp.geo") || "Геолокация", geoVal ? escapeHtml(geoVal) : "", geoExtra)}
+          ${row("fa-user-shield", t("dir.emp.role") || "Роль", escapeHtml(roleLabel(u.role)))}
+          ${row("fa-circle-info", t("dir.emp.status") || "Статус", statusVal)}
+          ${row("fa-calendar-plus", t("dir.emp.memberSince") || "В системе с", memberSince ? escapeHtml(memberSince) : "")}
+        </div>
+        ${wageBlock}
+        <div class="emp-detail-actions">
           <button class="ghost-btn" onclick="dirChangePassword('${escapeHtml(u.login)}')">
             <i class="fa-solid fa-key"></i> ${escapeHtml(t("dir.emp.password") || "Пароль")}
           </button>
@@ -200,8 +327,14 @@ function renderEmployees() {
           </button>
         </div>
       </div>
-    `;
-  }).join("");
+    </div>`;
+
+  document.getElementById("employeeDetailBody").innerHTML = body;
+  document.getElementById("employeeDetailModal").classList.add("open");
+}
+
+function closeEmployeeDetail() {
+  document.getElementById("employeeDetailModal").classList.remove("open");
 }
 
 function openCreateUserModal() {
@@ -259,7 +392,7 @@ function dirDeleteUser(login) {
   if (!confirm(`Удалить ${login}?`)) return;
   const res = deleteUser(login, dirSession.login);
   if (!res.ok) showToast("error", t("common.error"), res.error);
-  else { showToast("success", t("dir.emp.removed"), login); renderEmployees(); renderDashboard(); }
+  else { showToast("success", t("dir.emp.removed"), login); closeEmployeeDetail(); renderEmployees(); renderDashboard(); }
 }
 
 /* =========================================================
@@ -476,29 +609,70 @@ function renderClients() {
   }
 
   if (clients.length === 0) {
-    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-address-book"></i><p>Клиентов пока нет</p></div>`;
+    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-address-book"></i><p>${escapeHtml(t("dir.cli.empty") || "Клиентов пока нет")}</p></div>`;
     return;
   }
 
-  grid.innerHTML = clients.map(c => `
-    <div class="client-card">
-      <div class="client-avatar">${escapeHtml((c.name || "?").slice(0,1).toUpperCase())}</div>
-      <div class="client-name">${escapeHtml(c.name)}</div>
-      <div class="client-phone"><i class="fa-solid fa-phone"></i> ${escapeHtml(c.phone)}</div>
+  const discountOptions = [0, 5, 10, 15, 20, 25, 30, 40, 50];
+
+  grid.innerHTML = clients.map(c => {
+    const eligible = c.eligibleForDiscount;
+    const hasDiscount = c.discount > 0;
+    const opts = discountOptions.map(v =>
+      `<option value="${v}" ${c.discount === v ? "selected" : ""}>${v === 0 ? (t("dir.cli.noDiscount") || "Без скидки") : v + "%"}</option>`
+    ).join("");
+    // нестандартную текущую скидку показываем отдельной опцией
+    const customOpt = (!discountOptions.includes(c.discount)) ? `<option value="${c.discount}" selected>${c.discount}%</option>` : "";
+
+    return `
+    <div class="client-card ${eligible ? 'client-card-vip' : ''}">
+      <div class="client-card-top">
+        <div class="client-avatar">${escapeHtml((c.name || "?").slice(0,1).toUpperCase())}</div>
+        <div class="client-card-id">
+          <div class="client-name">${escapeHtml(c.name)}</div>
+          <div class="client-phone"><i class="fa-solid fa-phone"></i> ${escapeHtml(c.phone)}</div>
+        </div>
+        ${hasDiscount ? `<span class="client-discount-badge"><i class="fa-solid fa-tag"></i> ${c.discount}%</span>` : ''}
+      </div>
       ${c.address ? `<div class="client-addr"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(c.address)}</div>` : ''}
       <div class="client-stats">
-        <span><i class="fa-solid fa-clipboard-list"></i> ${c.ordersCount || 1} заказ(ов)</span>
+        <div class="client-stat">
+          <div class="client-stat-num">${c.ordersCount}</div>
+          <div class="client-stat-label">${escapeHtml(t("dir.cli.orders") || "Заказов")}</div>
+        </div>
+        <div class="client-stat">
+          <div class="client-stat-num">${Number(c.totalIncome || 0).toLocaleString("ru-RU")}</div>
+          <div class="client-stat-label">${escapeHtml(t("dir.cli.revenue") || "Доход (Сум)")}</div>
+        </div>
       </div>
-      <button class="danger-btn small" onclick="dirDeleteClient('${c.id}')"><i class="fa-solid fa-trash"></i></button>
-    </div>
-  `).join("");
+      ${eligible && !hasDiscount ? `<div class="client-suggest"><i class="fa-solid fa-star"></i> ${escapeHtml((t("dir.cli.suggest") || "Постоянный клиент ({n} заказа) — назначьте скидку").replace("{n}", c.ordersCount))}</div>` : ''}
+      <div class="client-discount-row">
+        <label class="client-discount-label"><i class="fa-solid fa-percent"></i> ${escapeHtml(t("dir.cli.discount") || "Скидка клиента")}</label>
+        <select class="client-discount-select" onchange="dirSetClientDiscount('${c.key}', this.value)">
+          ${opts}${customOpt}
+        </select>
+        <button class="ghost-btn small" onclick="dirSetClientDiscountCustom('${c.key}')"><i class="fa-solid fa-pen"></i> ${escapeHtml(t("dir.cli.custom") || "Другая")}</button>
+      </div>
+    </div>`;
+  }).join("");
 }
 
-function dirDeleteClient(id) {
-  if (!confirm(t("dir.emp.confirmDel", { login: "" }) || "Delete?")) return;
-  deleteClient(id, dirSession.login);
-  showToast("success", "Удалён", "Клиент удалён");
-  renderClients();
+function dirSetClientDiscount(key, percent) {
+  const res = setClientDiscount(key, percent, dirSession.login);
+  if (res && res.ok) {
+    const msg = (res.discount > 0
+      ? (t("dir.cli.discountSet") || "Скидка {p}% назначена")
+      : (t("dir.cli.discountRemoved") || "Скидка снята")).replace("{p}", res.discount);
+    showToast("success", t("common.success") || "Готово", msg);
+    renderClients();
+  }
+}
+
+function dirSetClientDiscountCustom(key) {
+  const val = prompt(t("dir.cli.customPrompt") || "Введите размер скидки в % (0–100):", "");
+  if (val === null) return;
+  const p = Math.max(0, Math.min(100, parseInt(val) || 0));
+  dirSetClientDiscount(key, p);
 }
 
 /* =========================================================

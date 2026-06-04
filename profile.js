@@ -18,6 +18,10 @@ let _profileLng = null;
   }
   applyI18n();
 
+  // Дата рождения не может быть в будущем
+  const _bd = document.getElementById("pBirthDate");
+  if (_bd) _bd.max = new Date().toISOString().slice(0, 10);
+
   // Логотип
   (async function () {
     if (window.FB && !window.FB.isReady()) {
@@ -60,6 +64,7 @@ let _profileLng = null;
     if (ln) document.getElementById("pLastName").value = ln;
     if (u.phone) document.getElementById("pPhone").value = u.phone;
     if (u.address) document.getElementById("pAddress").value = u.address;
+    if (u.birthDate) document.getElementById("pBirthDate").value = u.birthDate;
     if (u.avatar) {
       _avatarDataUrl = u.avatar;
       showAvatar(u.avatar);
@@ -216,6 +221,7 @@ function profileSubmit() {
   const lastName = document.getElementById("pLastName").value.trim();
   const phone = document.getElementById("pPhone").value.trim();
   const address = document.getElementById("pAddress").value.trim();
+  const birthDate = document.getElementById("pBirthDate").value;
 
   // Валидация
   if (!firstName) {
@@ -224,6 +230,14 @@ function profileSubmit() {
   }
   if (!lastName) {
     showProfileError(t("profile.errLastName") || "Введите фамилию");
+    return;
+  }
+  if (!birthDate) {
+    showProfileError(t("profile.errBirthDate") || "Укажите дату рождения");
+    return;
+  }
+  if (new Date(birthDate) > new Date()) {
+    showProfileError(t("profile.errBirthFuture") || "Дата рождения не может быть в будущем");
     return;
   }
   if (!phone) {
@@ -248,6 +262,7 @@ function profileSubmit() {
     lastName: lastName,
     phone: phone,
     address: address,
+    birthDate: birthDate,
     avatar: _avatarDataUrl,
     lat: _profileLat,
     lng: _profileLng,

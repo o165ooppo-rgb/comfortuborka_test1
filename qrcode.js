@@ -2348,3 +2348,35 @@ var qrcode = function() {
   }
   global.KusQR = { toDataURL: toDataURL };
 })(typeof window !== "undefined" ? window : this);
+
+/* =========================================================
+   buildReceiptQrHtml — HTML-блок QR-кода для чека.
+   ---------------------------------------------------------
+   Берёт настройку getReceiptQr() (url / image / caption из auth.js)
+   и рисует QR через window.KusQR. Возвращает "" если QR не задан.
+   Вызывается из app.js / worker.js / archive.js при построении чека.
+========================================================= */
+function buildReceiptQrHtml() {
+  var qr = (typeof getReceiptQr === "function") ? getReceiptQr() : null;
+  if (!qr || (!qr.url && !qr.image)) return "";
+  var src = "";
+  if (qr.url && typeof window !== "undefined" && window.KusQR) {
+    try { src = window.KusQR.toDataURL(qr.url, { size: 150, margin: 2 }); } catch (e) { src = ""; }
+  }
+  if (!src && qr.image) src = qr.image;
+  if (!src) return "";
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  var caption = qr.caption
+    ? '<div style="font-size:12px;color:#555;margin-top:6px;text-align:center">' + esc(qr.caption) + '</div>'
+    : "";
+  return '<div class="receipt-qr" style="text-align:center;margin-top:12px">'
+       + '<div class="receipt-divider"></div>'
+       + '<img src="' + src + '" alt="QR" style="width:132px;height:132px;display:block;margin:10px auto 0"/>'
+       + caption
+       + '</div>';
+}
+if (typeof window !== "undefined") window.buildReceiptQrHtml = buildReceiptQrHtml;

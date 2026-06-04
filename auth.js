@@ -17,6 +17,7 @@ const AUTH_KEYS = {
   SETTINGS: "kus_settings",         // общие настройки сайта
   ATTENDANCE: "kus_attendance",     // турникет: фото + геолокация
   TASKS: "kus_tasks",               // задания директора → сотрудникам
+  CLIENT_PREFS: "kus_client_prefs", // настройки клиентов (скидки), ключ = нормализованный телефон
 };
 
 /* =========================================================
@@ -149,6 +150,41 @@ function applyCompanyLogo() {
     }
     link.href = logo;
   }
+}
+
+/* =========================================================
+   QR-КОД ЧЕКА
+   ---------------------------------------------------------
+   Хранится в settings.receiptQr = { url, caption, image }.
+   url   — ссылка/текст внутри QR (QR генерируется из неё через window.KusQR)
+   image — заранее загруженная картинка QR (Data URL), запасной вариант
+   caption — подпись под QR на чеке
+========================================================= */
+function getReceiptQr() {
+  try {
+    const s = getSettings();
+    const q = s.receiptQr || {};
+    return { url: q.url || "", caption: q.caption || "", image: q.image || "" };
+  } catch { return { url: "", caption: "", image: "" }; }
+}
+
+function saveReceiptQr(qr, byLogin) {
+  const data = {
+    url: (qr && qr.url) ? String(qr.url).trim() : "",
+    caption: (qr && qr.caption) ? String(qr.caption).trim() : "",
+    image: (qr && qr.image) ? qr.image : "",
+  };
+  saveSettings({ receiptQr: data }, byLogin);
+  addLog(byLogin || "director", "QR-код чека сохранён");
+  return { ok: true, receiptQr: data };
+}
+
+function removeReceiptQr(byLogin) {
+  const cur = getSettings();
+  delete cur.receiptQr;
+  localStorage.setItem(AUTH_KEYS.SETTINGS, JSON.stringify(cur));
+  addLog(byLogin || "director", "QR-код чека удалён");
+  return { ok: true };
 }
 
 /* =========================================================
@@ -365,6 +401,7 @@ function updateUserProfile(login, profile, byLogin) {
   }
   if (profile.phone != null) u.phone = profile.phone.trim();
   if (profile.address != null) u.address = profile.address.trim();
+  if (profile.birthDate != null) u.birthDate = profile.birthDate;
   if (profile.avatar != null) u.avatar = profile.avatar;
   if (profile.lat != null) u.lat = profile.lat;
   if (profile.lng != null) u.lng = profile.lng;
@@ -693,44 +730,104 @@ function getUnreadCount(myLogin, fromLogin) {
 }
 
 /* =========================================================
-   КЛИЕНТЫ
+   КЛИЕНТЫ (CRM) — собираются АВТОМАТИЧЕСКИ из заказов
+   ---------------------------------------------------------
+   Список клиентов отдельно НЕ хранится, а вычисляется из всех
+   заказов (kus_all_orders) по номеру телефона — поэтому число
+   заказов и доход всегда точные (редактирование заказа не
+   задваивает счётчик). Отдельно (kus_client_prefs) хранится
+   только назначенная скидка по каждому клиенту.
 ========================================================= */
+const CLIENT_DISCOUNT_THRESHOLD = 3;   // с какого по счёту заказа предлагать скидку
+
+/* Нормализация телефона в ключ: только цифры */
+function normPhone(p) { return String(p || "").replace(/\D/g, ""); }
+
+/* Сколько денег реально поступило в компанию по заказу */
+function orderIncome(o) {
+  if (!o) return 0;
+  if (o.payment === "paid") return Number(o.price || o.total || 0);
+  if (o.payment === "unpaid") return Number(o.advance || 0);
+  return 0; // черновик — деньги ещё не поступили
+}
+
+function getClientPrefs() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEYS.CLIENT_PREFS)) || {}; }
+  catch { return {}; }
+}
+function saveClientPrefs(prefs) {
+  localStorage.setItem(AUTH_KEYS.CLIENT_PREFS, JSON.stringify(prefs));
+}
+
+/* Главная функция: собрать список клиентов из всех заказов */
 function getClients() {
-  try { return JSON.parse(localStorage.getItem(AUTH_KEYS.CLIENTS)) || []; }
-  catch { return []; }
-}
+  const orders = getAllOrders() || [];
+  const prefs = getClientPrefs();
+  const byPhone = {};
 
-function addClientFromOrder(order, byLogin) {
-  if (!order || !order.phone) return;
-  const clients = getClients();
-  const existing = clients.find(c => c.phone === order.phone);
-  if (existing) {
-    existing.ordersCount = (existing.ordersCount || 1) + 1;
-    existing.lastOrderAt = new Date().toISOString();
-    if (order.address) existing.address = order.address;
-    localStorage.setItem(AUTH_KEYS.CLIENTS, JSON.stringify(clients));
-    return;
-  }
-  clients.push({
-    id: "cl_" + Date.now(),
-    name: order.name || "—",
-    phone: order.phone,
-    address: order.address || "",
-    firstOrderAt: new Date().toISOString(),
-    lastOrderAt: new Date().toISOString(),
-    ordersCount: 1,
-    addedBy: byLogin || "system",
+  orders.forEach(o => {
+    const key = normPhone(o.phone);
+    if (!key) return; // без телефона клиента не идентифицировать
+    const ts = new Date(o.createdAt).getTime() || 0;
+    if (!byPhone[key]) {
+      byPhone[key] = {
+        key, phone: o.phone || "", name: o.name || "—", address: o.address || "",
+        ordersCount: 0, totalIncome: 0, totalPrice: 0,
+        firstTs: ts, lastTs: ts, firstOrderAt: o.createdAt, lastOrderAt: o.createdAt,
+      };
+    }
+    const c = byPhone[key];
+    c.ordersCount += 1;
+    c.totalIncome += orderIncome(o);
+    c.totalPrice += Number(o.price || o.total || 0);
+    if (ts >= c.lastTs) {  // берём самую свежую информацию о клиенте
+      c.lastTs = ts; c.lastOrderAt = o.createdAt;
+      if (o.name) c.name = o.name;
+      if (o.address) c.address = o.address;
+      if (o.phone) c.phone = o.phone;
+    }
+    if (ts < c.firstTs) { c.firstTs = ts; c.firstOrderAt = o.createdAt; }
   });
-  localStorage.setItem(AUTH_KEYS.CLIENTS, JSON.stringify(clients));
-  addLog(byLogin || "system", `Новый клиент в базе: ${order.name} (${order.phone})`);
+
+  const list = Object.values(byPhone).map(c => {
+    const pref = prefs[c.key] || {};
+    return {
+      id: "cl_" + c.key,
+      key: c.key,
+      name: c.name,
+      phone: c.phone,
+      address: c.address,
+      ordersCount: c.ordersCount,
+      totalIncome: c.totalIncome,
+      totalPrice: c.totalPrice,
+      firstOrderAt: c.firstOrderAt,
+      lastOrderAt: c.lastOrderAt,
+      discount: Math.max(0, Math.min(100, Number(pref.discount) || 0)),
+      discountSetAt: pref.discountSetAt || null,
+      eligibleForDiscount: c.ordersCount >= CLIENT_DISCOUNT_THRESHOLD,
+    };
+  });
+  list.sort((a, b) => new Date(b.lastOrderAt) - new Date(a.lastOrderAt));
+  return list;
 }
 
-function deleteClient(clientId, byLogin) {
-  let clients = getClients();
-  const target = clients.find(c => c.id === clientId);
-  clients = clients.filter(c => c.id !== clientId);
-  localStorage.setItem(AUTH_KEYS.CLIENTS, JSON.stringify(clients));
-  if (target) addLog(byLogin, `Удалён клиент: ${target.name} (${target.phone})`);
+/* Найти клиента по телефону (для авто-скидки в форме заказа) */
+function getClientByPhone(phone) {
+  const key = normPhone(phone);
+  if (!key) return null;
+  return getClients().find(c => c.key === key) || null;
+}
+
+/* Назначить/снять скидку клиенту (percent 0..100) */
+function setClientDiscount(phone, percent, byLogin) {
+  const key = normPhone(phone);
+  if (!key) return { ok: false, error: "Нет телефона" };
+  const prefs = getClientPrefs();
+  const p = Math.max(0, Math.min(100, Number(percent) || 0));
+  prefs[key] = { ...(prefs[key] || {}), discount: p, discountSetAt: new Date().toISOString() };
+  saveClientPrefs(prefs);
+  addLog(byLogin || "director", p > 0 ? `Клиенту ${phone} назначена скидка ${p}%` : `Скидка клиента ${phone} снята`);
+  return { ok: true, discount: p };
 }
 
 /* =========================================================
@@ -774,8 +871,27 @@ function saveOrder(order, byLogin) {
   if (idx >= 0) orders[idx] = newOrder;
   else orders.unshift(newOrder);
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
-  addClientFromOrder(newOrder, byLogin);
   addLog(byLogin, `${idx >= 0 ? "Обновлён" : "Создан"} заказ #${newOrder.id.slice(-6)} (${paymentLabel(newOrder.payment)})`);
+
+  // CRM: после сохранения вычисляем статус постоянного клиента.
+  // Эти поля НЕ попадают в хранилище (заказ уже записан выше) — только для UI.
+  try {
+    const isNewOrder = idx === -1;
+    const client = getClientByPhone(newOrder.phone);
+    if (client) {
+      newOrder._loyalty = {
+        isNewOrder: isNewOrder,
+        ordersCount: client.ordersCount,
+        eligible: client.eligibleForDiscount,
+        discount: client.discount,
+        justReached: isNewOrder && client.ordersCount === CLIENT_DISCOUNT_THRESHOLD,
+        needsDiscount: isNewOrder && client.eligibleForDiscount && client.discount === 0,
+        name: client.name,
+        phone: client.phone,
+      };
+    }
+  } catch (e) { /* ignore */ }
+
   return newOrder;
 }
 

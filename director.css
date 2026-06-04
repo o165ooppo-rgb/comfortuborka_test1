@@ -455,6 +455,205 @@
 }
 .employee-actions button { flex: 1; justify-content: center; }
 
+.employee-card-clickable { cursor: pointer; }
+.employee-card-clickable .employee-actions button { cursor: pointer; }
+
+/* =========================================================
+   ПОДРОБНАЯ КАРТОЧКА СОТРУДНИКА (модалка)
+========================================================= */
+.emp-detail-modal { max-width: 880px; width: 96%; }
+
+.emp-detail {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* Левая колонка: фото + имя + роль */
+.emp-detail-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding-top: 6px;
+}
+.emp-detail-photo {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--blue), var(--blue-2));
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+}
+.emp-detail-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.emp-detail-photo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.emp-detail-online-dot {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  background: var(--success);
+  border: 3px solid var(--bg-2);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+.emp-detail-name {
+  font-size: 22px;
+  font-weight: 800;
+  margin-top: 8px;
+  line-height: 1.2;
+}
+.emp-detail-login {
+  font-size: 13px;
+  color: var(--muted);
+}
+.emp-detail-role { margin-top: 6px; }
+.emp-detail-pending {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b07515;
+  background: rgba(245, 158, 11, .12);
+  border-radius: 999px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Правая колонка: полная анкета */
+.emp-detail-right { min-width: 0; }
+.emp-detail-heading {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+.emp-detail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.emp-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.emp-detail-row:last-child { border-bottom: none; }
+.emp-detail-row-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.emp-detail-row-main { flex: 1; min-width: 0; }
+.emp-detail-row-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.emp-detail-row-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-word;
+}
+.emp-detail-row-value a { color: var(--blue); text-decoration: none; }
+.emp-detail-row-value a:hover { text-decoration: underline; }
+.emp-detail-status { display: inline-flex; align-items: center; gap: 6px; }
+.emp-detail-status.st-online { color: var(--success); }
+.emp-detail-status.st-online i { font-size: 9px; }
+.emp-detail-status.st-offline { color: var(--muted); }
+.emp-detail-status.st-offline i { font-size: 9px; }
+.emp-detail-map-btn {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-radius: 10px;
+  padding: 8px 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.emp-detail-map-btn:hover { background: var(--blue); color: #fff; }
+
+/* Полоса со статистикой смен/заработка */
+.emp-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+.emp-detail-stat {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+}
+.emp-detail-stat-num {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.emp-detail-stat-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.emp-detail-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+.emp-detail-actions button { flex: 1; justify-content: center; }
+
+@media (max-width: 720px) {
+  .emp-detail {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .emp-detail-photo { width: 160px; height: 160px; }
+  .emp-detail-stats { grid-template-columns: 1fr; }
+}
+
 .ghost-btn.small, .danger-btn.small { padding: 7px 10px; font-size: 12px; }
 
 /* =========================================================
@@ -706,6 +905,99 @@
   position: absolute;
   top: 10px; right: 10px;
   padding: 6px 8px;
+}
+
+/* === CRM: новая раскладка карточки клиента === */
+.client-card { text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.client-card-vip { border-color: var(--yellow); box-shadow: 0 0 0 1px var(--yellow) inset; }
+.client-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.client-card .client-avatar { margin: 0; flex-shrink: 0; }
+.client-card-id { flex: 1; min-width: 0; }
+.client-card .client-name { margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; }
+.client-card .client-phone { margin-bottom: 0; }
+.client-discount-badge {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--yellow), var(--yellow-2));
+  color: var(--blue-2);
+  font-weight: 800;
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.client-card .client-stats {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.client-stat {
+  background: var(--bg-3, rgba(10,18,48,.03));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+}
+.client-stat-num {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.client-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.client-suggest {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b07515;
+  background: rgba(245, 158, 11, .12);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.client-discount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+.client-discount-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.client-discount-label i { color: var(--blue); }
+.client-discount-select {
+  flex: 1;
+  min-width: 90px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-2);
+  color: var(--ink);
 }
 
 /* =========================================================

@@ -94,20 +94,20 @@
           <div class="stat-label" data-i18n="dir.stat.orders">Заказов сегодня</div>
         </div>
         <div class="stat-card stat-4">
-          <div class="stat-icon"><i class="fa-solid fa-coins"></i></div>
+          <div class="stat-icon"><i class="fa-solid fa-money-bill-trend-up"></i></div>
           <div class="stat-num" id="statRevenue">0</div>
-          <div class="stat-label" data-i18n="dir.stat.revenue">Выручка (Сум)</div>
+          <div class="stat-label" data-i18n="dir.stat.turnover">Общий оборот (Сум)</div>
         </div>
       </div>
 
       <div class="dir-grid-2">
         <div class="dir-panel">
-          <h3><i class="fa-solid fa-bolt"></i> <span data-i18n="dir.recent">Последние действия</span></h3>
-          <div id="recentLogs" class="logs-list logs-list-compact"></div>
-        </div>
-        <div class="dir-panel">
           <h3><i class="fa-solid fa-circle"></i> <span data-i18n="dir.whoOnline">Кто онлайн</span></h3>
           <div id="onlineList" class="online-list"></div>
+        </div>
+        <div class="dir-panel">
+          <h3><i class="fa-solid fa-bolt"></i> <span data-i18n="dir.recent">Последние действия</span></h3>
+          <div id="recentLogs" class="logs-list logs-list-compact"></div>
         </div>
       </div>
     </section>
@@ -362,6 +362,14 @@
     </div>
   </div>
 
+  <!-- Modal: Employee Detail -->
+  <div id="employeeDetailModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-wide emp-detail-modal">
+      <button class="close" onclick="closeEmployeeDetail()" aria-label="Close">&times;</button>
+      <div id="employeeDetailBody"></div>
+    </div>
+  </div>
+
   <!-- Modal: Service Editor -->
   <div id="serviceEditorModal" class="modal" aria-hidden="true">
     <div class="modal-content modal-content-wide">
@@ -484,6 +492,7 @@
 
   <script src="i18n.js"></script>
   <script src="firebase-sync.js"></script>
+  <script src="qrcode.js"></script>
   <script src="auth.js"></script>
   <script src="director.js"></script>
   <script src="pwa.js"></script>

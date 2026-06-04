@@ -5,6 +5,11 @@
 
 let currentService = null;
 
+// CRM: скидка клиента в форме заказа
+let _orderClientDiscount = 0;   // % скидки найденного клиента
+let _orderAppliedDiscount = 0;  // % скидки, реально применённой к цене
+let _orderClientInfo = null;    // {ordersCount, ...} найденного клиента
+
 // Состояние плавающего чата с директором (для сотрудников/бухгалтеров)
 let _staffChatOpen = false;
 let _staffChatDirectorLogin = null;
@@ -298,6 +303,12 @@ function openOrderForm(serviceId) {
   document.getElementById("orderPrice").oninput = updateRemaining;
   document.getElementById("orderAdvance").oninput = updateRemaining;
 
+  // CRM: сброс состояния скидки + поиск клиента по телефону
+  _orderClientDiscount = 0; _orderAppliedDiscount = 0; _orderClientInfo = null;
+  const _discBanner = document.getElementById("orderDiscountBanner");
+  if (_discBanner) _discBanner.style.display = "none";
+  document.getElementById("phone").oninput = onOrderPhoneInput;
+
   // Индикатор загруженности дня — обновляется при смене даты
   const dateInput = document.getElementById("date");
   dateInput.onchange = updateDayLoadIndicator;
@@ -356,6 +367,69 @@ function updateRemaining() {
   const remaining = Math.max(0, price - advance);
   document.getElementById("orderRemaining").textContent =
     remaining.toLocaleString("ru-RU") + " " + t("services.currency");
+}
+
+/* CRM: при вводе телефона ищем клиента и показываем баннер скидки/лояльности */
+function onOrderPhoneInput() {
+  const banner = document.getElementById("orderDiscountBanner");
+  if (!banner) return;
+  const phone = (document.getElementById("phone").value || "").trim();
+  const client = (typeof getClientByPhone === "function") ? getClientByPhone(phone) : null;
+  _orderClientInfo = client;
+  _orderClientDiscount = client ? (client.discount || 0) : 0;
+  _orderAppliedDiscount = 0; // при смене телефона применённую скидку сбрасываем
+
+  if (!client || client.ordersCount < 1) { banner.style.display = "none"; return; }
+
+  banner.style.display = "block";
+  if (_orderClientDiscount > 0) {
+    banner.className = "order-discount-banner has-discount";
+    banner.innerHTML = `
+      <div class="odb-main">
+        <i class="fa-solid fa-tags"></i>
+        <span>${escapeHtml((t("order.clientReturning") || "Постоянный клиент: {n} заказа.").replace("{n}", client.ordersCount))} ${escapeHtml((t("order.clientHasDiscount") || "Скидка {p}%.").replace("{p}", _orderClientDiscount))}</span>
+      </div>
+      <button type="button" class="odb-apply" onclick="applyClientDiscountToPrice()">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> ${escapeHtml((t("order.applyDiscount") || "Применить −{p}%").replace("{p}", _orderClientDiscount))}
+      </button>`;
+  } else if (client.eligibleForDiscount) {
+    banner.className = "order-discount-banner";
+    banner.innerHTML = `
+      <div class="odb-main">
+        <i class="fa-solid fa-star"></i>
+        <span>${escapeHtml((t("order.clientLoyalNoDiscount") || "Постоянный клиент: {n} заказа. Скидку можно назначить в разделе «Клиенты».").replace("{n}", client.ordersCount))}</span>
+      </div>`;
+  } else {
+    banner.className = "order-discount-banner";
+    banner.innerHTML = `
+      <div class="odb-main">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>${escapeHtml((t("order.clientKnown") || "Клиент уже заказывал ({n}).").replace("{n}", client.ordersCount))}</span>
+      </div>`;
+  }
+}
+
+/* CRM: применить скидку клиента к введённой цене */
+function applyClientDiscountToPrice() {
+  const priceEl = document.getElementById("orderPrice");
+  const base = parseInt(priceEl.value) || 0;
+  if (_orderClientDiscount <= 0) return;
+  if (base <= 0) {
+    showToast("info", t("order.discountNoPrice") || "Сначала укажите цену", "");
+    return;
+  }
+  const discounted = Math.round(base * (1 - _orderClientDiscount / 100));
+  priceEl.value = discounted;
+  _orderAppliedDiscount = _orderClientDiscount;
+  updateRemaining();
+  const msg = (t("order.discountApplied") || "Скидка {p}% применена. Итоговая цена: {price}")
+    .replace("{p}", _orderAppliedDiscount).replace("{price}", discounted.toLocaleString("ru-RU"));
+  const banner = document.getElementById("orderDiscountBanner");
+  if (banner) {
+    banner.className = "order-discount-banner applied";
+    banner.innerHTML = `<div class="odb-main"><i class="fa-solid fa-circle-check"></i> <span>${escapeHtml(msg)}</span></div>`;
+  }
+  showToast("success", t("common.success") || "Готово", msg);
 }
 
 /* ===== Геолокация для адреса заказа ===== */
@@ -497,6 +571,7 @@ function confirmOrder() {
     total: price,                // для обратной совместимости
     remaining: Math.max(0, price - advance),
     payment,
+    discountPercent: _orderAppliedDiscount || 0,
     geo: _orderGeo ? { lat: _orderGeo.lat, lng: _orderGeo.lng, accuracy: _orderGeo.accuracy } : null,
   };
 
@@ -504,6 +579,18 @@ function confirmOrder() {
   closeOrderForm();
   showToast("success", t("order.created"), `#${saved.id.slice(-6)} (${paymentLabel(payment)})`);
   renderOrderHistory();
+
+  // CRM: уведомление о постоянном клиенте (на 3-м заказе и далее, пока скидка не назначена)
+  try {
+    const L = saved && saved._loyalty;
+    if (L && (L.justReached || L.needsDiscount)) {
+      showToast("info",
+        t("order.loyalTitle") || "Постоянный клиент!",
+        (t("order.loyalMsg") || "{name} сделал {n} заказа. Назначьте скидку в разделе «Клиенты».")
+          .replace("{name}", L.name || "").replace("{n}", L.ordersCount));
+    }
+  } catch (e) { /* ignore */ }
+
   _orderGeo = null;
 }
 
