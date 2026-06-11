@@ -654,6 +654,44 @@
   .emp-detail-stats { grid-template-columns: 1fr; }
 }
 
+/* === Полноэкранная карточка сотрудника (вкладка справа, не модалка) === */
+.emp-detail-head { margin-bottom: 20px; }
+.emp-back-btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+
+/* фото слева, анкета справа — во всю ширину страницы */
+.dir-tab[data-tab="employeeDetail"] .emp-detail {
+  grid-template-columns: 280px 1fr;
+  gap: 22px;
+}
+.dir-tab[data-tab="employeeDetail"] .emp-detail-left,
+.dir-tab[data-tab="employeeDetail"] .emp-detail-right {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 2px 14px rgba(10, 18, 48, .04);
+}
+.dir-tab[data-tab="employeeDetail"] .emp-detail-left { padding: 28px 20px 24px; }
+.dir-tab[data-tab="employeeDetail"] .emp-detail-right { padding: 26px 28px; }
+
+/* анкета — сетка ячеек, заполняет всю ширину; у каждого поля своя карточка */
+.dir-tab[data-tab="employeeDetail"] .emp-detail-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+.dir-tab[data-tab="employeeDetail"] .emp-detail-row {
+  border-bottom: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  padding: 13px 16px;
+  flex-wrap: wrap;
+}
+.dir-tab[data-tab="employeeDetail"] .emp-detail-stat { background: var(--bg); }
+
+.emp-detail-passport img { transition: transform .15s ease; }
+.emp-detail-passport img:hover { transform: scale(1.01); }
+
 .ghost-btn.small, .danger-btn.small { padding: 7px 10px; font-size: 12px; }
 
 /* =========================================================
@@ -2139,4 +2177,363 @@
   .att-wage-head { flex-direction: column; align-items: stretch; }
   .att-wage-totals { justify-content: space-between; }
   .wage-total-box { flex: 1; min-width: 0; padding: 10px 8px; }
+}
+
+/* =========================================================
+   РАЗДЕЛ «ЗАРПЛАТЫ СОТРУДНИКОВ»
+========================================================= */
+.sal-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--blue-soft, rgba(30,64,255,.06));
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 14px);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.sal-note > i { color: var(--blue); margin-top: 2px; flex-shrink: 0; }
+
+.sal-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.sal-filter .label { font-size: 11.5px; margin-bottom: 5px; }
+.sal-filter input {
+  padding: 9px 12px;
+  min-height: 40px;
+  font-size: 14px;
+}
+
+.sal-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.sal-total-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 16px);
+  padding: 16px 18px;
+}
+.sal-total-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: var(--blue-soft, rgba(30,64,255,.1));
+  color: var(--blue);
+  flex-shrink: 0;
+}
+.sal-total-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.sal-total-lbl {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-top: 3px;
+}
+.sal-total-money .sal-total-icon { background: rgba(0,135,92,.12); color: #00875c; }
+.sal-total-money .sal-total-val { color: #00875c; }
+.sal-total-warn .sal-total-icon { background: rgba(176,117,21,.14); color: #b07515; }
+.sal-total-warn .sal-total-val { color: #b07515; }
+
+.sal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+.sal-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 18px);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: transform .2s var(--ease, ease), box-shadow .2s, border-color .2s;
+}
+.sal-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg, 0 16px 36px rgba(10,18,48,.1));
+  border-color: rgba(30,64,255,.3);
+}
+.sal-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sal-avatar-wrap { position: relative; flex-shrink: 0; }
+.sal-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.sal-avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--blue), #4c6bff);
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+}
+.sal-avatar-wrap .online-dot {
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #18b368;
+  border: 2px solid var(--bg-2);
+}
+.sal-card-id { flex: 1; min-width: 0; }
+.sal-card-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sal-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+.sal-card-login { font-size: 11.5px; }
+.sal-card-earned { text-align: right; flex-shrink: 0; }
+.sal-card-earned-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #00875c;
+  font-variant-numeric: tabular-nums;
+}
+.sal-card-earned-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+
+.sal-card-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--bg-3);
+  border-radius: 12px;
+}
+.sal-stat { text-align: center; }
+.sal-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.sal-stat-lbl {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  margin-top: 2px;
+}
+.sal-card-foot { margin-top: 12px; }
+.sal-open-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b07515;
+  background: rgba(176,117,21,.12);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+@media (max-width: 700px) {
+  .sal-grid { grid-template-columns: 1fr; }
+  .sal-card-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* === Аванс / долг в карточке зарплаты === */
+.sal-total-debt .sal-total-icon { background: rgba(220,38,38,.12); color: #dc2626; }
+.sal-total-debt .sal-total-val { color: #dc2626; }
+
+.sal-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.sal-give-btn { font-size: 13px; padding: 7px 12px; margin-left: auto; }
+
+.sal-adv {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.sal-adv-owing {
+  background: rgba(220,38,38,.05);
+  border-color: rgba(220,38,38,.25);
+}
+.sal-adv-cleared {
+  background: rgba(0,135,92,.06);
+  border-color: rgba(0,135,92,.25);
+}
+.sal-adv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sal-adv-label { font-size: 13px; font-weight: 800; color: var(--ink); }
+.sal-adv-owing .sal-adv-label > i { color: #dc2626; }
+.sal-adv-cleared .sal-adv-label > i { color: #00875c; }
+.sal-adv-amount {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.sal-adv-owing .sal-adv-amount { color: #dc2626; }
+.sal-adv-cleared .sal-adv-amount { color: #00875c; }
+
+.sal-adv-bar {
+  height: 7px;
+  border-radius: 6px;
+  background: rgba(10,18,48,.08);
+  overflow: hidden;
+  margin: 9px 0 7px;
+}
+.sal-adv-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width .4s var(--ease, ease);
+}
+.sal-adv-bar-done { background: linear-gradient(90deg, #00875c, #18b368); }
+
+.sal-adv-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.sal-adv-info strong { color: var(--ink); }
+.sal-adv-remain { color: #dc2626; font-weight: 700; }
+.sal-adv-sub { font-size: 11.5px; margin-top: 5px; }
+
+.sal-adv-settle {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #00875c;
+}
+
+/* Превью в модалке аванса */
+.adv-preview {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: var(--ink);
+  min-height: 18px;
+}
+.adv-preview > i { color: var(--blue); margin-right: 5px; }
+.adv-preview strong { color: var(--blue); }
+
+/* =========================================================
+   РАЗДЕЛ «ДОПУСК К СМЕНЕ»
+========================================================= */
+.shift-note {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--blue-soft, rgba(36,64,240,.06));
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 14px);
+  padding: 12px 16px; font-size: 13px; color: var(--ink);
+  margin-bottom: 16px; line-height: 1.5;
+}
+.shift-note > i { color: var(--blue); margin-top: 2px; flex-shrink: 0; }
+
+.shift-bar {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 18px;
+}
+.shift-count {
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  background: var(--bg-3); padding: 9px 14px; border-radius: 10px;
+}
+.shift-count strong { color: #00875c; }
+
+.shift-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.shift-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 16px; padding: 14px 16px;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.shift-card-on {
+  border-color: rgba(0,135,92,.35);
+  background: linear-gradient(180deg, rgba(0,135,92,.05), var(--bg-2));
+}
+.shift-card-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.shift-avatar-wrap { position: relative; flex-shrink: 0; }
+.shift-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; display: block; }
+.shift-avatar-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--blue), #4c6bff);
+  color: #fff; font-weight: 800; font-size: 15px;
+}
+.shift-avatar-wrap .online-dot {
+  position: absolute; right: 0; bottom: 0; width: 11px; height: 11px;
+  border-radius: 50%; background: #18b368; border: 2px solid var(--bg-2);
+}
+.shift-name { font-size: 15px; font-weight: 800; color: var(--ink); }
+.shift-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.shift-status { font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+.shift-status-on { color: #00875c; }
+.shift-status-off { color: var(--muted); }
+
+/* Переключатель-тумблер */
+.shift-toggle { position: relative; cursor: pointer; flex-shrink: 0; }
+.shift-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.shift-toggle-track {
+  display: block; width: 52px; height: 30px; border-radius: 99px;
+  background: #cfd4e4; transition: background .22s var(--ease, ease); position: relative;
+}
+.shift-toggle-thumb {
+  position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
+  border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  transition: transform .22s var(--ease, ease);
+}
+.shift-toggle input:checked + .shift-toggle-track { background: #18b368; }
+.shift-toggle input:checked + .shift-toggle-track .shift-toggle-thumb { transform: translateX(22px); }
+.shift-toggle input:focus-visible + .shift-toggle-track { outline: 3px solid rgba(36,64,240,.45); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .shift-grid { grid-template-columns: 1fr; }
 }

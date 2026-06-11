@@ -3110,6 +3110,18 @@ input::placeholder { color: var(--muted); }
 }
 
 /* Аватар-фото в user-chip (шапка) */
+.user-chip-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, .55);
+}
+.user-chip-avatar i { font-size: .95rem; opacity: .8; }
 .user-chip-avatar img {
   width: 100%;
   height: 100%;
@@ -3117,6 +3129,16 @@ input::placeholder { color: var(--muted); }
   border-radius: inherit;
   display: block;
 }
+.user-chip-info { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.user-chip-name {
+  font-weight: 700;
+  font-size: .9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.user-chip-role { font-size: .72rem; font-weight: 500; opacity: .85; }
 
 /* Кошелёк в шапке */
 .wallet-chip {

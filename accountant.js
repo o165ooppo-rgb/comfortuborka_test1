@@ -863,6 +863,19 @@ function prepareTrendData(list, bucket) {
 }
 
 function renderCharts(filtered) {
+  // Страховка: Chart.js мог ещё не догрузиться с CDN — подождём и повторим,
+  // вместо того чтобы падать с "Chart is not defined".
+  if (typeof Chart === "undefined") {
+    renderCharts._retries = (renderCharts._retries || 0) + 1;
+    if (renderCharts._retries <= 25) {
+      setTimeout(() => renderCharts(filtered), 150);
+    } else {
+      console.warn("[ACC] Chart.js недоступен — графики пропущены");
+    }
+    return;
+  }
+  renderCharts._retries = 0;
+
   const bucket = document.getElementById("bucket")?.value || "day";
   const trend = prepareTrendData(filtered, bucket);
 

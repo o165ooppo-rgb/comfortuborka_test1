@@ -18,6 +18,8 @@ const AUTH_KEYS = {
   ATTENDANCE: "kus_attendance",     // турникет: фото + геолокация
   TASKS: "kus_tasks",               // задания директора → сотрудникам
   CLIENT_PREFS: "kus_client_prefs", // настройки клиентов (скидки), ключ = нормализованный телефон
+  ADVANCES: "kus_salary_advances",  // авансы сотрудников (долг, отрабатывается сменами)
+  TURNSTILE_PERMITS: "kus_turnstile_permits", // допуск к турникету (кого директор взял на смену), по датам
 };
 
 /* =========================================================
@@ -346,30 +348,34 @@ function saveUsers(users) {
 
 async function createUser(userData, createdByLogin) {
   const users = getUsers();
-  if (users.some(u => u.login === userData.login)) {
+  const login = (userData.login || "").trim().toLowerCase();
+  if (users.some(u => u.login === login)) {
     return { ok: false, error: "Логин уже существует" };
   }
-  const hashedPw = window.hashPassword
-    ? await window.hashPassword(userData.password)
-    : userData.password;
   const role = userData.role || "worker";
-  // Директор создаёт ТОЛЬКО логин+пароль+роль.
-  // Остальные данные (имя, телефон, адрес, фото) сотрудник заполнит сам при первом входе.
-  // Директорский аккаунт считаем сразу заполненным (его не заставляем проходить анкету).
-  const isDirector = role === "director";
+  const fullName = (userData.fullName && userData.fullName.trim()) || login;
+
+  // Создаём аккаунт в Supabase (Auth + профиль). Пароль хранит Supabase.
+  if (typeof createUserRemote === "function") {
+    const res = await createUserRemote({
+      login, password: userData.password, role, fullName,
+      phone: userData.phone || "", byLogin: createdByLogin,
+    });
+    if (!res.ok) return { ok: false, error: res.error || "Не удалось создать в базе" };
+  }
+
+  // Локальная копия (без пароля) — чтобы список и getUsers работали сразу
   const newUser = {
     id: "u_" + Date.now(),
-    login: userData.login.trim(),
-    password: hashedPw,
-    passwordHashed: !!window.hashPassword,
-    fullName: (userData.fullName && userData.fullName.trim()) || userData.login.trim(),
+    login: login,
+    fullName: fullName,
     role: role,
     phone: userData.phone || "",
     address: "",
-    avatar: "",            // Data URL фото
+    avatar: "",
     lat: null,
     lng: null,
-    profileComplete: isDirector ? true : false,   // ← сотрудник заполнит при первом входе
+    profileComplete: role === "director",
     createdAt: new Date().toISOString(),
     createdBy: createdByLogin,
   };
@@ -388,8 +394,13 @@ function getUserByLogin(login) {
 
 function updateUserProfile(login, profile, byLogin) {
   const users = getUsers();
-  const u = users.find(x => x.login === login);
-  if (!u) return { ok: false, error: "Пользователь не найден" };
+  let u = users.find(x => x.login === login);
+  if (!u) {
+    // Пользователь живёт в Supabase, но ещё не в localStorage — создаём локальную запись
+    const sess = (typeof getSession === "function") ? getSession() : null;
+    u = { login: login, role: (sess && sess.role) || "worker" };
+    users.push(u);
+  }
 
   if (profile.firstName != null) u.firstName = profile.firstName.trim();
   if (profile.lastName != null) u.lastName = profile.lastName.trim();
@@ -403,6 +414,7 @@ function updateUserProfile(login, profile, byLogin) {
   if (profile.address != null) u.address = profile.address.trim();
   if (profile.birthDate != null) u.birthDate = profile.birthDate;
   if (profile.avatar != null) u.avatar = profile.avatar;
+  if (profile.passport != null) u.passport = profile.passport;
   if (profile.lat != null) u.lat = profile.lat;
   if (profile.lng != null) u.lng = profile.lng;
   u.profileComplete = true;
@@ -417,6 +429,9 @@ function updateUserProfile(login, profile, byLogin) {
     s.profileComplete = true;
     localStorage.setItem(AUTH_KEYS.SESSION, JSON.stringify(s));
   }
+
+  // Сохраняем профиль в Supabase (фоном): поля + profile_complete = true
+  if (typeof pushProfile === "function") pushProfile(login, u);
 
   addLog(byLogin || login, `Заполнен профиль: ${login}`);
   return { ok: true, user: u };
@@ -439,6 +454,7 @@ function deleteUser(login, byLogin) {
   }
   users = users.filter(u => u.login !== login);
   saveUsers(users);
+  if (typeof deleteUserRemote === "function") deleteUserRemote(login);
   addLog(byLogin, `Удалён аккаунт: ${login}`);
   return { ok: true };
 }
@@ -520,6 +536,10 @@ function logout() {
     addLog(s.login, "Выход из системы");
     setLastSeen(s.login);
   }
+  // Убираем это устройство из списка активных сеансов (best-effort)
+  try { if (typeof deleteCurrentDevice === "function") deleteCurrentDevice(); } catch (e) {}
+  // Выходим и из Supabase Auth, иначе сессия останется активной
+  try { if (window.sb && window.sb.auth) window.sb.auth.signOut(); } catch (e) {}
   localStorage.removeItem(AUTH_KEYS.SESSION);
 }
 
@@ -545,7 +565,7 @@ function homePageForRole(role) {
 function redirectByRole(session) {
   if (!session) { window.location.href = "login.html"; return; }
   // Если профиль ещё не заполнен — сначала анкета
-  if (session.role !== "director" && session.profileComplete !== true && !isProfileComplete(session.login)) {
+  if (session.role !== "director" && session.profileComplete !== true) {
     window.location.href = "profile.html";
     return;
   }
@@ -560,7 +580,7 @@ function requireAuth(allowedRoles) {
   }
   // Если профиль не заполнен — гоним на анкету (но не зацикливаемся на самой profile.html)
   const onProfilePage = /profile\.html$/i.test(window.location.pathname);
-  if (!onProfilePage && s.role !== "director" && s.profileComplete !== true && !isProfileComplete(s.login)) {
+  if (!onProfilePage && s.role !== "director" && s.profileComplete !== true) {
     window.location.href = "profile.html";
     return null;
   }
@@ -892,6 +912,10 @@ function saveOrder(order, byLogin) {
     }
   } catch (e) { /* ignore */ }
 
+  // Сохраняем заказ в Supabase (в фоне). localStorage уже обновлён выше,
+  // поэтому интерфейс реагирует мгновенно.
+  if (typeof pushOrder === "function") pushOrder(newOrder);
+
   return newOrder;
 }
 
@@ -911,6 +935,7 @@ function updateOrderPayment(orderId, payment, byLogin) {
     o.paidAt = null;
   }
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
+  if (typeof pushOrder === "function") pushOrder(o);
   addLog(byLogin, `Заказ #${orderId.slice(-6)}: статус оплаты ${paymentLabel(old)} → ${paymentLabel(payment)}`);
 }
 
@@ -923,6 +948,7 @@ function deleteOrder(orderId, byLogin) {
   if (!target) return { ok: false, error: "Заказ не найден" };
   const filtered = orders.filter(o => o.id !== orderId);
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(filtered));
+  if (typeof deleteOrderRemote === "function") deleteOrderRemote(orderId);
   addLog(byLogin || "director", `Удалён заказ #${orderId.slice(-6)} (${target.name || ""})`);
   return { ok: true };
 }
@@ -941,6 +967,7 @@ function takeOrder(orderId, workerLogin, opts) {
   if (opts.startDate) o.startDate = opts.startDate;
   if (opts.startTime) o.startTime = opts.startTime;
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
+  if (typeof pushOrder === "function") pushOrder(o);
   const startInfo = opts.startDate ? ` (начало: ${opts.startDate}${opts.startTime ? " " + opts.startTime : ""})` : "";
   addLog(workerLogin, `Взял(а) заказ #${orderId.slice(-6)}${startInfo}`);
   return { ok: true };
@@ -991,6 +1018,7 @@ function updateOrder(orderId, patch, byLogin) {
   });
 
   localStorage.setItem(AUTH_KEYS.ORDERS, JSON.stringify(orders));
+  if (typeof pushOrder === "function") pushOrder(o);
   addLog(byLogin || "system", `Отредактирован заказ #${orderId.slice(-6)}: ${changes.join("; ")}`);
   return { ok: true, changed: true };
 }
@@ -1079,6 +1107,7 @@ function deleteAttendance(id, byLogin) {
   const removed = list[idx];
   list.splice(idx, 1);
   saveAttendanceList(list);
+  if (typeof deleteAttendanceRemote === "function") deleteAttendanceRemote(id, removed.photoUrl);
   addLog(byLogin || "director", `Удалена запись турникета сотрудника ${removed.login}`);
   return { ok: true };
 }
@@ -1175,6 +1204,209 @@ function getWageSummaryForUser(login) {
     }
   });
   return { totalEarned, daysWorked, todayEarned, dailyWage: DAILY_WAGE };
+}
+
+/* =========================================================
+   АВАНСЫ (долг сотрудника, который отрабатывается сменами)
+   ---------------------------------------------------------
+   Директор выдаёт аванс. Это долг: при ставке DAILY_WAGE
+   аванс 1 000 000 = 5 рабочих дней «отработки».
+   Гасится ТОЛЬКО сменами, отработанными ПОСЛЕ выдачи аванса
+   (для этого в момент выдачи запоминаем baselineEarned —
+   сколько сотрудник уже заработал к этому моменту).
+   Когда долг = 0 — аванс отработан.
+   Структура записи:
+   {
+     id, login, amount, date (когда выдан), note,
+     baselineEarned (заработок сотрудника на момент выдачи),
+     settled (true когда долг закрыт/архивирован), settledAt,
+     createdAt, createdBy
+   }
+========================================================= */
+function getAdvances() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEYS.ADVANCES)) || []; }
+  catch { return []; }
+}
+
+function saveAdvancesRaw(list) {
+  localStorage.setItem(AUTH_KEYS.ADVANCES, JSON.stringify(list));
+}
+
+function getAdvancesForUser(login) {
+  return getAdvances().filter(a => a.login === login);
+}
+
+/* Активные (ещё не закрытые) авансы сотрудника */
+function getActiveAdvancesForUser(login) {
+  return getAdvancesForUser(login).filter(a => !a.settled);
+}
+
+function addAdvance(login, amount, dateGiven, note, byLogin) {
+  amount = Number(amount) || 0;
+  if (!login) return { ok: false, error: "Не выбран сотрудник" };
+  if (amount <= 0) return { ok: false, error: "Сумма аванса должна быть больше нуля" };
+
+  // Сколько сотрудник заработал к моменту выдачи — точка отсчёта для погашения
+  const baseline = (typeof getWageSummaryForUser === "function")
+    ? (getWageSummaryForUser(login).totalEarned || 0) : 0;
+
+  const list = getAdvances();
+  list.unshift({
+    id: "adv_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+    login: login,
+    amount: amount,
+    date: dateGiven || new Date().toISOString().slice(0, 10),
+    note: (note || "").trim(),
+    baselineEarned: baseline,
+    settled: false,
+    settledAt: null,
+    createdAt: new Date().toISOString(),
+    createdBy: byLogin || "director",
+  });
+  saveAdvancesRaw(list);
+  addLog(byLogin || "director", `Выдан аванс ${amount.toLocaleString("ru-RU")} сум сотруднику ${login}`);
+  return { ok: true };
+}
+
+function deleteAdvance(id, byLogin) {
+  const list = getAdvances();
+  const target = list.find(a => a.id === id);
+  if (!target) return { ok: false, error: "Аванс не найден" };
+  saveAdvancesRaw(list.filter(a => a.id !== id));
+  addLog(byLogin || "director", `Удалён аванс ${Number(target.amount).toLocaleString("ru-RU")} сум (${target.login})`);
+  return { ok: true };
+}
+
+/* Закрыть (архивировать) все активные авансы сотрудника —
+   например, когда долг отработан или прощён. */
+function settleAdvancesForUser(login, byLogin) {
+  const list = getAdvances();
+  let changed = 0;
+  list.forEach(a => {
+    if (a.login === login && !a.settled) {
+      a.settled = true;
+      a.settledAt = new Date().toISOString();
+      changed++;
+    }
+  });
+  if (changed === 0) return { ok: false, error: "Нет активных авансов" };
+  saveAdvancesRaw(list);
+  addLog(byLogin || "director", `Долг по авансу закрыт: ${login}`);
+  return { ok: true, settled: changed };
+}
+
+/* Главный расчёт: сколько должен сотрудник и сколько дней доработать.
+   Возвращает:
+     status: 'none' | 'owing' | 'cleared'
+     totalAdvanced — сумма активных авансов
+     repaid        — сколько уже отработано (в деньгах)
+     debt          — остаток долга
+     daysTotal     — на сколько дней всего был аванс
+     daysWorkedOff — сколько дней уже отработал
+     daysRemaining — сколько дней осталось доработать
+     progress      — % погашения
+*/
+function getAdvanceStatusForUser(login) {
+  const active = getActiveAdvancesForUser(login);
+  const dailyRate = (typeof DAILY_WAGE !== "undefined") ? DAILY_WAGE : 0;
+
+  if (active.length === 0) {
+    return { status: "none", totalAdvanced: 0, repaid: 0, debt: 0,
+             daysTotal: 0, daysWorkedOff: 0, daysRemaining: 0, progress: 0, count: 0 };
+  }
+
+  const totalAdvanced = active.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+  // Точка отсчёта — заработок на момент самого старого активного аванса
+  const minBaseline = active.reduce((m, a) => Math.min(m, Number(a.baselineEarned) || 0), Infinity);
+  const currentEarned = (typeof getWageSummaryForUser === "function")
+    ? (getWageSummaryForUser(login).totalEarned || 0) : 0;
+
+  const earnedSince = Math.max(0, currentEarned - (isFinite(minBaseline) ? minBaseline : 0));
+  const repaid = Math.min(totalAdvanced, earnedSince);
+  const debt = Math.max(0, totalAdvanced - earnedSince);
+
+  const daysTotal = dailyRate > 0 ? Math.ceil(totalAdvanced / dailyRate) : 0;
+  const daysRemaining = dailyRate > 0 ? Math.ceil(debt / dailyRate) : 0;
+  const daysWorkedOff = Math.max(0, daysTotal - daysRemaining);
+  const progress = totalAdvanced > 0 ? Math.min(100, Math.round((repaid / totalAdvanced) * 100)) : 0;
+
+  return {
+    status: debt <= 0 ? "cleared" : "owing",
+    totalAdvanced, repaid, debt,
+    daysTotal, daysWorkedOff, daysRemaining, progress,
+    count: active.length,
+  };
+}
+
+/* =========================================================
+   ДОПУСК К ТУРНИКЕТУ (наряд на смену)
+   ---------------------------------------------------------
+   По умолчанию турникет ЗАКРЫТ для всех. Директор «допускает»
+   конкретных сотрудников на КОНКРETНУЮ дату (обычно сегодня).
+   Только допущенные могут отметить приход и заработать день.
+   Допуск дневной: завтра нужно допускать заново.
+   Хранилище: { login: "YYYY-MM-DD" } — дата, на которую допущен.
+========================================================= */
+function todayLocalKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getTurnstilePermits() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEYS.TURNSTILE_PERMITS)) || {}; }
+  catch { return {}; }
+}
+
+function saveTurnstilePermits(map) {
+  localStorage.setItem(AUTH_KEYS.TURNSTILE_PERMITS, JSON.stringify(map));
+}
+
+/* Допущен ли сотрудник к турникету на СЕГОДНЯ */
+function isTurnstileAllowed(login, dateKey) {
+  const day = dateKey || todayLocalKey();
+  const permits = getTurnstilePermits();
+  return permits[login] === day;
+}
+
+/* Допустить / снять допуск на сегодня */
+function setTurnstilePermit(login, allowed, byLogin) {
+  const permits = getTurnstilePermits();
+  if (allowed) {
+    permits[login] = todayLocalKey();
+  } else {
+    delete permits[login];
+  }
+  saveTurnstilePermits(permits);
+  addLog(byLogin || "director",
+    allowed ? `Допустил к смене: ${login}` : `Снял допуск к смене: ${login}`);
+  return { ok: true };
+}
+
+/* Допустить всех переданных сотрудников на сегодня */
+function allowTurnstileForAll(logins, byLogin) {
+  const permits = getTurnstilePermits();
+  const today = todayLocalKey();
+  (logins || []).forEach(l => { permits[l] = today; });
+  saveTurnstilePermits(permits);
+  addLog(byLogin || "director", `Допустил к смене всех (${(logins || []).length})`);
+  return { ok: true };
+}
+
+/* Снять допуск со всех (закрыть смену для всех) */
+function clearAllTurnstilePermits(byLogin) {
+  saveTurnstilePermits({});
+  addLog(byLogin || "director", "Снял допуск к смене со всех");
+  return { ok: true };
+}
+
+/* Список логинов, допущенных сегодня */
+function getAllowedTodayLogins() {
+  const permits = getTurnstilePermits();
+  const today = todayLocalKey();
+  return Object.keys(permits).filter(l => permits[l] === today);
 }
 
 /* =========================================================

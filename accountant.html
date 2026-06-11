@@ -15,33 +15,22 @@
   <meta name="apple-mobile-web-app-title" content="Komfort"/>
   <meta name="mobile-web-app-capable" content="yes"/>
 
-  <!-- Font Awesome: сначала пробуем локально, fallback на CDN если файла нет -->
-  <link rel="stylesheet" href="vendor/fontawesome.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';"/>
-  <!-- Резервный CDN на случай если оба заблокированы — иконки всё равно загрузятся через jsDelivr -->
+  <!-- Font Awesome с CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <!-- Резервный CDN на случай если основной заблокирован -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="accountant.css"/>
+  <link rel="stylesheet" href="theme.css"/>
 
-  <!-- Chart.js: локально, иначе jsDelivr, иначе unpkg (тройной fallback) -->
+  <!-- Chart.js напрямую с CDN (блокирующе, до отрисовки). Запас — unpkg. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script>
-    (function loadChart() {
-      function tryLoad(src, onFail) {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = function() { console.log('[ACC] Chart.js loaded from', src); };
-        s.onerror = function() { console.warn('[ACC] failed to load Chart.js from', src); if (onFail) onFail(); };
-        document.head.appendChild(s);
-      }
-      tryLoad('vendor/chart.umd.min.js', function() {
-        tryLoad('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', function() {
-          tryLoad('https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js', function() {
-            console.error('[ACC] Chart.js could not be loaded. Charts will not work.');
-          });
-        });
-      });
-    })();
+    if (typeof Chart === 'undefined') {
+      document.write('<scr' + 'ipt src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"><\/scr' + 'ipt>');
+    }
   </script>
   <!-- Moment.js не критичен — есть нативный fallback в accountant.js, но попробуем загрузить -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js" onerror="console.warn('moment.js blocked, using native fallback');"></script>
@@ -426,8 +415,10 @@
 </div>
 
 <script src="i18n.js"></script>
-<script src="firebase-sync.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase-client.js"></script>
 <script src="auth.js"></script>
+<script src="supabase-data.js"></script>
 <script src="accountant.js"></script>
 <script src="pwa.js"></script>
 </body>

@@ -1,0 +1,553 @@
+/* =========================================================
+   THEME.CSS — Komfort Uborka · современная тема (v2)
+   ---------------------------------------------------------
+   Подключать ПОСЛЕДНИМ, после всех остальных CSS.
+   Идея v2 — «блик чистоты»: глянцевый отблеск на карточках
+   и кнопках, как протёртая до блеска поверхность. Плюс
+   премиум-фактура фона и доводка всех ключевых компонентов.
+========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
+
+/* =========================================================
+   1. ТОКЕНЫ
+========================================================= */
+:root {
+  --bg:        #f6f7fc;
+  --bg-2:      #ffffff;
+  --bg-3:      #eff1f8;
+
+  --ink:       #0b1020;
+  --ink-2:     #353c58;
+  --muted:     #6f7793;
+
+  --line:      #e4e7f0;
+  --line-2:    #edeff6;
+
+  --blue:      #2440f0;
+  --blue-2:    #1430d8;
+  --blue-soft: #edf0ff;
+  --blue-glow: rgba(36, 64, 240, .16);
+
+  --yellow:      #ffd60a;
+  --yellow-2:    #f5b800;
+  --yellow-soft: #fff7d1;
+
+  --shadow-xs: 0 1px 2px rgba(11, 16, 32, .05);
+  --shadow-sm: 0 2px 8px rgba(11, 16, 32, .06);
+  --shadow:    0 10px 30px rgba(11, 16, 32, .09);
+  --shadow-lg: 0 28px 70px rgba(11, 16, 32, .16);
+  --shadow-blue: 0 12px 32px rgba(36, 64, 240, .30);
+
+  --radius-sm: 12px;
+  --radius:    18px;
+  --radius-lg: 26px;
+  --radius-xl: 34px;
+
+  --font-display: 'Space Grotesk', 'Manrope', sans-serif;
+}
+
+/* =========================================================
+   2. ФОН — фарфор + едва заметное «зерно» (премиум-фактура)
+========================================================= */
+body {
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(36, 64, 240, .05), transparent 60%),
+    radial-gradient(900px 460px at -10% 0%, rgba(255, 214, 10, .07), transparent 55%),
+    var(--bg);
+  letter-spacing: -0.011em;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.028'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Амбиент-блобы: спокойнее, дороже */
+.mesh-blob { filter: blur(95px); opacity: .42; animation-duration: 34s; }
+.mesh-blob-1 { background: radial-gradient(circle, rgba(255, 214, 10, .5), transparent 70%); }
+.mesh-blob-2 { background: radial-gradient(circle, rgba(36, 64, 240, .3), transparent 70%); }
+.mesh-blob-3 { background: radial-gradient(circle, rgba(255, 184, 0, .3), transparent 70%); }
+
+/* Мягкое появление страницы */
+@keyframes kuPageIn { from { opacity: 0; } to { opacity: 1; } }
+body { animation: kuPageIn .45s ease both; }
+
+/* =========================================================
+   3. ТИПОГРАФИКА
+========================================================= */
+h1, h2, h3,
+.dir-head h1, .archive-hero h1, .worker-hero h1,
+.login-brand h1, .profile-welcome h1, .section-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* Фирменный жёлтый «мазок» под главными заголовками */
+.dir-head h1, .archive-hero h1, section.worker-hero h1, .section-title {
+  position: relative;
+  display: inline-block;
+}
+.dir-head h1::after, .archive-hero h1::after,
+section.worker-hero h1::after, .section-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -7px;
+  width: 46px;
+  height: 5px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--yellow), var(--yellow-2));
+}
+.section-head { text-align: inherit; }
+.section-head .section-title::after { left: 50%; transform: translateX(-50%); }
+
+/* Цифры — табличные, чтобы деньги стояли ровно */
+.hero-stat-num, .archive-stat-value, .worker-stat-value,
+.sal-total-val, .sal-card-earned-val, .sal-stat-val,
+.wage-total-val, .arc-money-val, .service-price, .stat-num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection { background: rgba(255, 214, 10, .45); color: var(--ink); }
+
+/* Скроллбары */
+* { scrollbar-width: thin; scrollbar-color: #c9cede transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #c9cede; border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: #aab1c6; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Фокус с клавиатуры */
+:focus { outline: none; }
+:focus-visible {
+  outline: 3px solid rgba(36, 64, 240, .45);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* =========================================================
+   4. ШАПКА — стекло + аккуратные детали
+========================================================= */
+.navbar {
+  background: rgba(255, 255, 255, .78);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  backdrop-filter: saturate(160%) blur(14px);
+  border-bottom: 1px solid rgba(228, 231, 240, .9);
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, var(--shadow-xs);
+}
+.brand-text, .dir-brand {
+  font-family: var(--font-display);
+  letter-spacing: .02em;
+}
+.call-center {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+.social-icons a {
+  transition: transform .2s var(--ease-snap), color .2s;
+}
+.social-icons a:hover { transform: translateY(-2px) scale(1.1); color: var(--blue); }
+
+/* =========================================================
+   5. «БЛИК ЧИСТОТЫ» — фирменный глянцевый отблеск
+   (карточки услуг и главные кнопки)
+========================================================= */
+.service-card, .primary, .hero-btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+
+/* блик на карточке услуги */
+.service-card:hover { isolation: isolate; }
+.service-card:hover::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -80%;
+  width: 55%;
+  background: linear-gradient(105deg,
+    transparent 0%,
+    rgba(255, 255, 255, .0) 28%,
+    rgba(255, 255, 255, .55) 50%,
+    rgba(255, 255, 255, .0) 72%,
+    transparent 100%);
+  transform: skewX(-18deg);
+  animation: kuSweep .9s var(--ease-out) both;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 1;
+}
+@keyframes kuSweep {
+  from { left: -80%; }
+  to   { left: 130%; }
+}
+
+/* блик на главной кнопке */
+.primary::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -90%;
+  width: 60%;
+  background: linear-gradient(105deg,
+    transparent 0%,
+    rgba(255,255,255,.5) 50%,
+    transparent 100%);
+  transform: skewX(-18deg);
+  pointer-events: none;
+  z-index: 1;
+}
+.primary:hover::after { animation: kuSweep .8s var(--ease-out) both; }
+
+/* =========================================================
+   6. КНОПКИ
+========================================================= */
+.primary {
+  border-radius: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  box-shadow: var(--shadow-blue), 0 1px 0 rgba(255,255,255,.25) inset;
+  transition: transform .18s var(--ease), box-shadow .25s var(--ease), filter .2s;
+}
+.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(36, 64, 240, .38), 0 1px 0 rgba(255,255,255,.25) inset;
+}
+.primary:active {
+  transform: translateY(0) scale(.985);
+  box-shadow: 0 6px 18px rgba(36, 64, 240, .30);
+}
+
+.ghost-btn {
+  border-radius: 13px;
+  border: 1.5px solid var(--line);
+  background: var(--bg-2);
+  font-weight: 700;
+  transition: border-color .2s, background .2s, color .2s, transform .15s var(--ease), box-shadow .2s;
+}
+.ghost-btn:hover {
+  border-color: rgba(36, 64, 240, .45);
+  background: var(--blue-soft);
+  color: var(--blue);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.ghost-btn:active { transform: translateY(0); }
+
+.danger-btn { border-radius: 13px; border-width: 1.5px; font-weight: 700; }
+.danger-btn:hover { box-shadow: 0 8px 20px rgba(255, 59, 48, .25); transform: translateY(-1px); }
+
+@media (pointer: coarse) {
+  .primary, .ghost-btn, .nav-button, .danger-btn { min-height: 44px; }
+  .chip-btn { min-height: 38px; }
+}
+
+/* =========================================================
+   7. КАРТОЧКИ УСЛУГ — глубина и кольцо у иконки
+========================================================= */
+.service-card {
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-xs);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.75)),
+    var(--bg-2);
+}
+.service-card:hover {
+  transform: translateY(-7px);
+  border-color: rgba(36, 64, 240, .25);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,.6) inset;
+}
+.service-icon {
+  border-radius: 22px;
+  box-shadow:
+    var(--shadow-blue),
+    0 0 0 6px rgba(36, 64, 240, .08);
+}
+.service-card:hover .service-icon {
+  box-shadow:
+    0 14px 34px rgba(245, 184, 0, .4),
+    0 0 0 6px rgba(255, 214, 10, .18);
+}
+
+/* =========================================================
+   8. ПОЛЯ ВВОДА
+========================================================= */
+input[type="text"], input[type="tel"], input[type="email"],
+input[type="password"], input[type="number"], input[type="date"],
+input[type="time"], select, textarea {
+  border-radius: 13px !important;
+  border-width: 1.5px !important;
+  background: var(--bg-2);
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 4px var(--blue-glow) !important;
+  background: #fff;
+}
+::placeholder { color: #a6adc4; }
+.label, .field-label { font-weight: 700; letter-spacing: .015em; }
+
+/* =========================================================
+   9. ОБЩИЕ КАРТОЧКИ / ПАНЕЛИ
+========================================================= */
+.worker-card, .employee-card, .sal-card, .arc-card,
+.archive-stat, .worker-stat, .sal-total-card, .dir-panel,
+.archive-hero-inner, .archive-filters, .acc-card, .stat-card,
+.order-block, .login-card, .profile-card {
+  border: 1px solid var(--line);
+  transition: transform .22s var(--ease), box-shadow .25s var(--ease), border-color .22s;
+}
+.worker-card, .employee-card, .sal-card, .arc-card,
+.archive-stat, .worker-stat, .sal-total-card, .dir-panel { box-shadow: var(--shadow-xs); }
+
+.worker-card:hover, .employee-card:hover,
+.sal-card:hover, .arc-card:hover {
+  border-color: rgba(36, 64, 240, .28);
+  box-shadow: var(--shadow);
+}
+
+/* Статы — лёгкий подъём числа на hover */
+.archive-stat:hover .archive-stat-value,
+.worker-stat:hover .worker-stat-value { color: var(--blue); }
+
+/* =========================================================
+   10. МОДАЛКИ — блюр; на телефоне — шторка снизу
+========================================================= */
+.modal {
+  background: rgba(11, 16, 32, .42);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.modal-content {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,.7);
+  box-shadow: var(--shadow-lg);
+  animation: kuModalIn .32s var(--ease-out) both;
+}
+@keyframes kuModalIn {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 600px) {
+  .modal { align-items: flex-end !important; }
+  .modal-content {
+    border-radius: 22px 22px 0 0;
+    max-height: 92vh;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    animation: kuSheetUp .34s var(--ease-out) both;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+  @keyframes kuSheetUp {
+    from { opacity: .4; transform: translateY(40px); }
+    to   { opacity: 1;  transform: translateY(0); }
+  }
+  /* «ручка» шторки как в нативных приложениях */
+  .modal-content::before {
+    content: "";
+    display: block;
+    width: 42px;
+    height: 4px;
+    border-radius: 99px;
+    background: var(--line);
+    margin: 0 auto 12px;
+  }
+}
+.modal-content .close {
+  border-radius: 50%;
+  transition: background .2s, transform .25s var(--ease-snap), color .2s;
+}
+.modal-content .close:hover { background: var(--bg-3); transform: rotate(90deg); }
+
+/* =========================================================
+   11. ЧЕК — ощущение настоящего чека
+========================================================= */
+.receipt-modal, .receipt-modal .modal-content { background: #fff; }
+#receiptBody {
+  font-variant-numeric: tabular-nums;
+}
+.receipt-actions .ghost-btn { border-style: dashed; }
+
+/* =========================================================
+   12. ТОСТЫ
+========================================================= */
+.toast {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+}
+.toast-success { border-left: 4px solid var(--success); }
+.toast-error   { border-left: 4px solid var(--danger); }
+.toast-info    { border-left: 4px solid var(--blue); }
+
+/* =========================================================
+   13. ЧИПЫ / БЕЙДЖИ / ПЕРЕКЛЮЧАТЕЛЬ ЯЗЫКА
+========================================================= */
+.chip-btn {
+  border-radius: 99px;
+  font-weight: 700;
+  transition: background .18s, color .18s, border-color .18s, transform .15s var(--ease);
+}
+.chip-btn:hover { transform: translateY(-1px); }
+.chip-btn.active { box-shadow: 0 6px 16px rgba(36, 64, 240, .25); }
+
+.pay-pill, .employee-role, .wage-badge { border-radius: 99px; font-weight: 800; letter-spacing: .01em; }
+.user-chip { border-radius: 99px; border: 1px solid var(--line); background: var(--bg-2); font-weight: 700; }
+
+.lang-switcher, .login-lang-row .lang-switcher { border-radius: 99px; }
+.lang-btn { border-radius: 99px !important; transition: background .18s, color .18s, transform .15s var(--ease); }
+.lang-btn:hover { transform: translateY(-1px); }
+
+/* =========================================================
+   14. ЧАТ
+========================================================= */
+.staff-chat-panel {
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.staff-chat-head { background: linear-gradient(135deg, var(--blue), var(--blue-2)); }
+.chat-bubble {
+  box-shadow: 0 14px 34px rgba(36, 64, 240, .38);
+  transition: transform .2s var(--ease-snap), box-shadow .25s;
+}
+.chat-bubble:hover { transform: scale(1.07); }
+.chat-bubble:active { transform: scale(.96); }
+.staff-chat-input-row input { border-radius: 99px !important; }
+.staff-chat-send {
+  border-radius: 50%;
+  transition: transform .18s var(--ease-snap), box-shadow .2s;
+}
+.staff-chat-send:hover { transform: scale(1.08); }
+
+/* =========================================================
+   15. ТАБЛИЦЫ
+========================================================= */
+.att-wage-table th {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.att-wage-table tbody tr { transition: background .15s; }
+.att-wage-table tbody tr:hover { background: var(--blue-soft); }
+
+/* =========================================================
+   16. НАВИГАЦИЯ ДИРЕКТОРА
+========================================================= */
+.dir-nav-btn {
+  border-radius: 12px;
+  font-weight: 700;
+  transition: background .18s, color .18s, transform .15s var(--ease);
+}
+.dir-nav-btn:hover { transform: translateY(-1px); }
+.dir-nav-btn.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+  box-shadow: inset 0 0 0 1.5px rgba(36, 64, 240, .25);
+}
+
+/* =========================================================
+   17. ВХОД / ПРОФИЛЬ
+========================================================= */
+.login-card, .profile-card {
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, .8);
+  box-shadow: var(--shadow-lg), 0 1px 0 rgba(255,255,255,.8) inset;
+  background: rgba(255, 255, 255, .86);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.login-brand .brand-mark {
+  box-shadow: 0 16px 38px rgba(36, 64, 240, .35);
+  border-radius: 22px;
+}
+.login-submit { border-radius: 14px; }
+
+/* Турникет — камера */
+.ts-camera-wrap { border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); }
+.ts-step { border-radius: 99px; font-weight: 700; }
+.ts-step-active { box-shadow: 0 6px 16px rgba(36, 64, 240, .22); }
+
+/* PWA-кнопка и кнопка безопасности */
+.pwa-install-btn { border-radius: 99px; box-shadow: 0 12px 30px rgba(36, 64, 240, .32); }
+#kusSecurityBtn { transition: transform .2s var(--ease-snap), box-shadow .25s !important; }
+#kusSecurityBtn:hover { transform: scale(1.08); }
+
+/* =========================================================
+   18. ПУСТЫЕ СОСТОЯНИЯ
+========================================================= */
+.empty-state, .archive-empty {
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+}
+
+/* =========================================================
+   19. ДОСТУПНОСТЬ И ПЕЧАТЬ
+========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media print {
+  body { background: #fff !important; animation: none !important; }
+  body::after { display: none !important; }
+  .navbar, #kusSecurityBtn, .chat-bubble, .pwa-install-btn, .bg-mesh { display: none !important; }
+}
+
+/* =========================================================
+   20. САЙДБАР БУХГАЛТЕРИИ — согласование с новой палитрой
+========================================================= */
+.acc-sidebar {
+  background: linear-gradient(180deg, #0b1020 0%, #142a9c 58%, #1430d8 100%);
+  /* запас снизу, чтобы «Выйти» не прилипал к краю и не перекрывался */
+  padding-bottom: max(26px, env(safe-area-inset-bottom)) !important;
+}
+.acc-side-user {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+}
+.side-bottom a, .side-bottom button {
+  border-radius: 12px;
+  transition: background .18s, transform .15s var(--ease);
+}
+.side-bottom a:hover, .side-bottom button:hover { transform: translateY(-1px); }
+/* активный период/язык — мягче и в тон бренду */
+.acc-side-lang button.active { box-shadow: 0 4px 14px rgba(36,64,240,.35); }
+
+/* =========================================================
+   21. ВЕЖЛИВОЕ ОКНО «НЕ ДОПУЩЕН К СМЕНЕ» (сотрудник)
+========================================================= */
+.ts-blocked-card { text-align: center; }
+.ts-blocked-emoji {
+  font-size: 56px; line-height: 1;
+  margin: 4px auto 14px;
+  animation: kuFloatEmoji 3s ease-in-out infinite;
+}
+@keyframes kuFloatEmoji {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+.ts-blocked-card h2 { font-family: var(--font-display); margin-bottom: 8px; }
+.ts-blocked-card .muted { line-height: 1.6; margin-bottom: 18px; }

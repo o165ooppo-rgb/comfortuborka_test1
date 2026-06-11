@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Komfort Uborka — Безопасность</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1e40ff"/>
+  <link rel="icon" type="image/png" href="favicon-32.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="Komfort"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="theme.css"/>
+  <style>
+    .acc-shell { max-width: 640px; margin: 0 auto; padding: 18px 16px 90px; }
+    .acc-back { margin-bottom: 14px; }
+    .acc-card { background: var(--bg-2, #fff); border: 1px solid var(--line, #e6e8f0); border-radius: 18px; padding: 20px; margin-bottom: 16px; }
+    .acc-card h2 { font-size: 18px; margin: 0 0 4px; display: flex; align-items: center; gap: 9px; }
+    .acc-card h2 > i { color: var(--blue, #1e40ff); }
+    .acc-card .muted { font-size: 13px; }
+    .dev-item { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line, #eee); }
+    .dev-item:first-of-type { border-top: none; }
+    .dev-ico { width: 42px; height: 42px; border-radius: 12px; background: var(--bg-3, #f3f5fb); color: var(--blue, #1e40ff); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .dev-main { flex: 1; min-width: 0; }
+    .dev-name { font-weight: 700; font-size: 14.5px; }
+    .dev-meta { font-size: 12px; color: var(--muted, #98a2b3); margin-top: 2px; }
+    .dev-current { display: inline-block; font-size: 11px; font-weight: 700; color: #00875c; background: rgba(0,135,92,.1); padding: 2px 8px; border-radius: 6px; margin-left: 6px; }
+    .dev-revoke { color: #dc2626; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 700; padding: 8px; white-space: nowrap; }
+    .twofa-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+    .twofa-state { font-weight: 800; }
+    .twofa-on { color: #00875c; }
+    .twofa-off { color: var(--muted, #98a2b3); }
+    .twofa-form { margin-top: 14px; }
+    .acc-section-hint { font-size: 12.5px; color: var(--muted,#98a2b3); margin-top: 8px; line-height: 1.5; }
+  </style>
+</head>
+<body class="login-body">
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+  </div>
+
+  <div class="acc-shell">
+    <button class="ghost-btn acc-back" onclick="accGoBack()">
+      <i class="fa-solid fa-arrow-left"></i> <span data-i18n="account.back">Назад</span>
+    </button>
+
+    <!-- Устройства -->
+    <div class="acc-card">
+      <h2><i class="fa-solid fa-laptop-mobile"></i> <span data-i18n="account.devicesTitle">Активные устройства</span></h2>
+      <p class="muted" data-i18n="account.devicesSub">Здесь видно, с каких устройств выполнен вход. Незнакомое — завершите.</p>
+      <div id="devList"></div>
+    </div>
+
+    <!-- Двухэтапный код -->
+    <div class="acc-card">
+      <h2><i class="fa-solid fa-shield-halved"></i> <span data-i18n="account.twofaTitle">Двухэтапный код</span></h2>
+      <p class="muted" data-i18n="account.twofaSub">Дополнительный код при входе. Даже зная логин и пароль, без кода войти не получится.</p>
+
+      <div class="twofa-row">
+        <span data-i18n="account.twofaStatus">Статус:</span>
+        <span id="twofaState" class="twofa-state twofa-off">—</span>
+      </div>
+
+      <div id="twofaError" class="login-error" style="display:none"></div>
+
+      <!-- Включение / смена -->
+      <div id="twofaEnableForm" class="twofa-form" style="display:none">
+        <label class="label" data-i18n="account.twofaNew">Новый код (минимум 4 цифры)</label>
+        <input type="password" id="twofaInput1" inputmode="numeric" placeholder="••••"/>
+        <label class="label" data-i18n="account.twofaRepeat" style="margin-top:10px">Повторите код</label>
+        <input type="password" id="twofaInput2" inputmode="numeric" placeholder="••••"/>
+        <button class="primary" style="margin-top:14px;width:100%" onclick="accEnableTwoFA()">
+          <i class="fa-solid fa-check"></i> <span data-i18n="account.twofaSave">Включить код</span>
+        </button>
+      </div>
+
+      <!-- Управление когда включено -->
+      <div id="twofaManage" style="display:none">
+        <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap">
+          <button class="ghost-btn" style="flex:1" onclick="accShowChange()">
+            <i class="fa-solid fa-pen"></i> <span data-i18n="account.twofaChange">Сменить код</span>
+          </button>
+          <button class="ghost-btn dir-order-del" style="flex:1; color:#dc2626" onclick="accDisableTwoFA()">
+            <i class="fa-solid fa-xmark"></i> <span data-i18n="account.twofaDisable">Выключить</span>
+          </button>
+        </div>
+      </div>
+
+      <p class="acc-section-hint" data-i18n="account.twofaHint">Запомните код — без него и без директора восстановить доступ будет сложно.</p>
+    </div>
+  </div>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="auth.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="account.js"></script>
+  <script src="pwa.js"></script>
+</body>
+</html>

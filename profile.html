@@ -17,6 +17,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="theme.css"/>
+  <style>
+    .phone-field { display:flex; align-items:center; gap:6px; border:1px solid #d0d5dd; border-radius:12px; background:#fff; padding:0 14px; }
+    .phone-field .phone-prefix { font-weight:700; color:#101828; white-space:nowrap; }
+    .phone-field input { flex:1; border:none !important; background:transparent !important; padding:13px 0 !important; outline:none !important; box-shadow:none !important; font-size:1rem; }
+    .profile-passport-box { margin-top:8px; border:1.5px dashed #d0d5dd; border-radius:14px; overflow:hidden; background:rgba(0,0,0,0.02); min-height:130px; display:flex; align-items:center; justify-content:center; }
+    .profile-passport-box img { width:100%; max-height:260px; object-fit:contain; display:block; }
+  </style>
 </head>
 <body class="login-body">
 
@@ -82,10 +90,14 @@
         <input type="date" id="pBirthDate"/>
       </label>
 
-      <!-- Телефон -->
+      <!-- Телефон (код +998 закреплён) -->
       <label class="field">
-        <span class="field-label"><i class="fa-solid fa-phone"></i> <span data-i18n="profile.phone">Номер телефона</span></span>
-        <input type="tel" id="pPhone" autocomplete="tel" data-i18n-ph="profile.phonePh" placeholder="+998 90 123 45 67"/>
+        <span class="field-label"><i class="fa-solid fa-phone"></i> <span data-i18n="profile.phone">Номер телефона</span> <span class="req">*</span></span>
+        <div class="phone-field">
+          <span class="phone-prefix">+998</span>
+          <input type="tel" id="pPhone" inputmode="numeric" maxlength="9" autocomplete="tel"
+                 oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"/>
+        </div>
       </label>
 
       <!-- Адрес с геолокацией -->
@@ -100,6 +112,28 @@
         </div>
         <div id="pAddressStatus" class="address-status" style="display:none"></div>
       </label>
+
+      <!-- Паспорт -->
+      <div class="field">
+        <span class="field-label"><i class="fa-solid fa-passport"></i> <span data-i18n="profile.passport">Паспорт (фото)</span> <span class="req">*</span></span>
+        <div class="profile-passport-box" id="profilePassportBox">
+          <div id="profilePassportEmpty" style="text-align:center; color:#98a2b3; padding:24px;">
+            <i class="fa-solid fa-id-card" style="font-size:2rem;"></i>
+            <div data-i18n="profile.passportHint" style="margin-top:6px; font-size:.85rem;">Сфотографируйте паспорт (обе стороны можно по очереди)</div>
+          </div>
+          <img id="profilePassportImg" style="display:none" alt="passport"/>
+        </div>
+        <input type="file" id="passportCameraInput" accept="image/*" capture="environment" style="display:none" onchange="profileHandlePassport(event)"/>
+        <input type="file" id="passportGalleryInput" accept="image/*" style="display:none" onchange="profileHandlePassport(event)"/>
+        <div class="profile-photo-buttons" style="margin-top:10px;">
+          <button type="button" class="primary profile-photo-btn" onclick="document.getElementById('passportCameraInput').click()">
+            <i class="fa-solid fa-camera"></i> <span data-i18n="profile.passportTake">Сфоткать паспорт</span>
+          </button>
+          <button type="button" class="ghost-btn profile-photo-btn" onclick="document.getElementById('passportGalleryInput').click()">
+            <i class="fa-solid fa-images"></i> <span data-i18n="profile.fromGallery">Из галереи</span>
+          </button>
+        </div>
+      </div>
 
       <div id="profileError" class="login-error" style="display:none"></div>
 
@@ -118,8 +152,10 @@
   <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
 
   <script src="i18n.js"></script>
-  <script src="firebase-sync.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-client.js"></script>
   <script src="auth.js"></script>
+  <script src="supabase-data.js"></script>
   <script src="profile.js"></script>
   <script src="pwa.js"></script>
 </body>

@@ -450,8 +450,30 @@ function printReceipt() {
 /* =========================================================
    ТУРНИКЕТ — приход/уход
 ========================================================= */
-function wOpenArrive() { openTurnstile("check_in"); }
-function wOpenLeave() { openTurnstile("check_out"); }
+function wOpenArrive() {
+  // Турникет открыт только если директор допустил сотрудника к смене на сегодня
+  if (typeof isTurnstileAllowed === "function" && !isTurnstileAllowed(session.login)) {
+    showTurnstileBlocked();
+    return;
+  }
+  openTurnstile("check_in");
+}
+function wOpenLeave() { openTurnstile("check_out"); }   // уход не блокируем — смену нужно закрыть
+
+/* Вежливое окно «вы не допущены к смене» */
+function showTurnstileBlocked() {
+  const modal = document.getElementById("turnstileBlockedModal");
+  if (modal) { modal.classList.add("open"); return; }
+  // запасной вариант — тост, если окна вдруг нет
+  if (typeof showToast === "function") {
+    showToast("info", t("ts.blockedTitle") || "Сегодня выходной 🙂",
+      t("ts.blockedText") || "Директор пока не открыл вам турникет на сегодня.");
+  }
+}
+function closeTurnstileBlocked() {
+  const modal = document.getElementById("turnstileBlockedModal");
+  if (modal) modal.classList.remove("open");
+}
 
 function openTurnstile(type) {
   _tsType = type;
@@ -500,13 +522,22 @@ function stopTurnstileCamera() {
 function tsCapturePhoto() {
   const v = document.getElementById("tsVideo");
   const c = document.getElementById("tsCanvas");
-  c.width = v.videoWidth || 640;
-  c.height = v.videoHeight || 480;
+  // Сжимаем фото: максимум 480px по большей стороне (вместо полного разрешения камеры)
+  const vw = v.videoWidth || 640, vh = v.videoHeight || 480;
+  const MAX = 480;
+  let tw = vw, th = vh;
+  if (Math.max(vw, vh) > MAX) {
+    const k = MAX / Math.max(vw, vh);
+    tw = Math.round(vw * k);
+    th = Math.round(vh * k);
+  }
+  c.width = tw;
+  c.height = th;
   const ctx = c.getContext("2d");
-  ctx.translate(c.width, 0);
+  ctx.translate(tw, 0);
   ctx.scale(-1, 1);
-  ctx.drawImage(v, 0, 0, c.width, c.height);
-  _tsPhotoDataUrl = c.toDataURL("image/jpeg", 0.75);
+  ctx.drawImage(v, 0, 0, tw, th);
+  _tsPhotoDataUrl = c.toDataURL("image/jpeg", 0.7);
   document.getElementById("tsPreview").src = _tsPhotoDataUrl;
   document.getElementById("tsPreview").style.display = "block";
   document.getElementById("tsVideo").style.display = "none";
@@ -602,7 +633,7 @@ function fetchTurnstileGeo() {
   );
 }
 
-function tsSubmit() {
+async function tsSubmit() {
   const errBox = document.getElementById("tsError");
   errBox.style.display = "none";
   if (!_tsPhotoDataUrl) {
@@ -646,9 +677,26 @@ function tsSubmit() {
     accuracy: _tsGeo ? _tsGeo.accuracy : null,
     address: _tsGeo ? _tsGeo.address : null,
   };
-  const res = addAttendance(record);
-  if (!res.ok) {
-    errBox.textContent = res.error || t("common.error");
+
+  // Блокируем кнопку на время загрузки фото в Storage
+  const submitBtn = document.getElementById("tsSubmitBtn");
+  const prevHtml = submitBtn ? submitBtn.innerHTML : "";
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + (t("ts.saving") || "Сохранение...");
+  }
+
+  let res;
+  if (typeof pushAttendance === "function") {
+    res = await pushAttendance(record);   // фото -> Storage, метаданные -> таблица attendance
+  } else {
+    res = addAttendance(record);          // запасной путь (локально), если Supabase не загрузился
+  }
+
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = prevHtml; }
+
+  if (!res || !res.ok) {
+    errBox.textContent = (res && res.error) || t("common.error");
     errBox.style.display = "block";
     return;
   }

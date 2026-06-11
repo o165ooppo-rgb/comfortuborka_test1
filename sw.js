@@ -1,10 +1,10 @@
 /* =========================================================
    KOMFORT UBORKA — Service Worker
    Кэширует оболочку приложения для офлайн-режима.
-   ВАЖНО: Firebase / Nominatim / Google Fonts всегда идут в сеть.
+   ВАЖНО: Supabase / Nominatim всегда идут в сеть, шрифты — из кэша.
 ========================================================= */
 
-const CACHE_VERSION = "komfort-v15";  // ← БУМПАЙ при выпуске новой версии
+const CACHE_VERSION = "komfort-v16";  // ← БУМПАЙ при выпуске новой версии
 const CACHE_NAME = `komfort-shell-${CACHE_VERSION}`;
 
 // Файлы оболочки — без них приложение не работает
@@ -17,13 +17,16 @@ const SHELL_FILES = [
   "./accountant.html",
   "./archive.html",
   "./profile.html",
+  "./account.html",
   "./style.css",
+  "./theme.css",
   "./director.css",
   "./accountant.css",
   "./archive.css",
   "./i18n.js",
   "./auth.js",
-  "./firebase-sync.js",
+  "./supabase-client.js",
+  "./supabase-data.js",
   "./qrcode.js",
   "./app.js",
   "./director.js",
@@ -31,6 +34,7 @@ const SHELL_FILES = [
   "./accountant.js",
   "./archive.js",
   "./profile.js",
+  "./account.js",
   "./pwa.js",
   "./manifest.json",
   "./icon-96.png",
@@ -81,11 +85,9 @@ self.addEventListener("fetch", (event) => {
   // Только GET запросы кэшируем
   if (event.request.method !== "GET") return;
 
-  // Firebase Realtime Database — НИКОГДА не кэшируем (всегда сеть)
-  if (url.hostname.includes("firebaseio.com") ||
-      url.hostname.includes("firebase.googleapis.com") ||
-      url.hostname.includes("googleapis.com") ||
-      url.hostname.includes("gstatic.com")) {
+  // Supabase (REST, Realtime, Storage, Auth) — НИКОГДА не кэшируем (всегда сеть)
+  if (url.hostname.includes("supabase.co") ||
+      url.hostname.includes("supabase.in")) {
     // Network-only с тихим фолбэком
     event.respondWith(
       fetch(event.request).catch(() =>

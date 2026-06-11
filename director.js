@@ -52,6 +52,8 @@ function initDirector() {
     if (activeTab === "clients" && (e.key === "kus_all_orders" || e.key === "kus_client_prefs")) renderClients();
     if (activeTab === "services" && e.key === "kus_services_v2") renderServicesEditor();
     if (activeTab === "attendance" && e.key === "kus_attendance") renderAttendance();
+    if (activeTab === "salaries" && (e.key === "kus_attendance" || e.key === "kus_users" || e.key === "kus_salary_advances")) renderSalaries();
+    if (activeTab === "shift" && (e.key === "kus_turnstile_permits" || e.key === "kus_users" || e.key === "kus_attendance")) renderShift();
     if (activeTab === "logs" && e.key === "kus_action_logs") renderFullLogs();
     if (activeTab === "tasks" && (e.key === "kus_tasks" || e.key === "kus_users")) renderTasksTab();
     if (e.key === "kus_users" && activeTab === "tasks") renderTaskStaffList();
@@ -81,6 +83,8 @@ function switchTab(tab) {
   else if (tab === "clients") renderClients();
   else if (tab === "services") renderServicesEditor();
   else if (tab === "attendance") renderAttendance();
+  else if (tab === "shift") renderShift();
+  else if (tab === "salaries") renderSalaries();
   else if (tab === "settings") renderSettingsTab();
   else if (tab === "logs") renderFullLogs();
 }
@@ -291,6 +295,13 @@ function openEmployeeDetail(login) {
       </div>`;
   }
 
+  const passportBlock = u.passport
+    ? `<div class="emp-detail-passport">
+         <div class="emp-detail-row-label" style="margin:14px 0 6px;"><i class="fa-solid fa-passport"></i> ${escapeHtml(t("dir.emp.passport") || "Паспорт")}</div>
+         <img src="${escapeHtml(u.passport)}" alt="passport" onclick="openImageLightbox(this.src)" style="width:100%;max-width:460px;border-radius:12px;cursor:zoom-in;border:1px solid rgba(0,0,0,0.12);display:block;"/>
+       </div>`
+    : (profileDone ? `<div class="emp-detail-row-label" style="margin:14px 0 6px;opacity:.55;"><i class="fa-solid fa-passport"></i> ${escapeHtml(t("dir.emp.noPassport") || "Паспорт не загружен")}</div>` : "");
+
   const body = `
     <div class="emp-detail">
       <div class="emp-detail-left">
@@ -317,6 +328,7 @@ function openEmployeeDetail(login) {
           ${row("fa-circle-info", t("dir.emp.status") || "Статус", statusVal)}
           ${row("fa-calendar-plus", t("dir.emp.memberSince") || "В системе с", memberSince ? escapeHtml(memberSince) : "")}
         </div>
+        ${passportBlock}
         ${wageBlock}
         <div class="emp-detail-actions">
           <button class="ghost-btn" onclick="dirChangePassword('${escapeHtml(u.login)}')">
@@ -330,11 +342,25 @@ function openEmployeeDetail(login) {
     </div>`;
 
   document.getElementById("employeeDetailBody").innerHTML = body;
-  document.getElementById("employeeDetailModal").classList.add("open");
+  switchTab("employeeDetail");
+  try { document.querySelector(".dir-main").scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
 }
 
 function closeEmployeeDetail() {
-  document.getElementById("employeeDetailModal").classList.remove("open");
+  switchTab("employees");
+}
+
+/* Просмотр картинки (паспорт) на весь экран */
+function openImageLightbox(src) {
+  if (!src) return;
+  const ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;";
+  ov.onclick = () => ov.remove();
+  const img = document.createElement("img");
+  img.src = src;
+  img.style.cssText = "max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);";
+  ov.appendChild(img);
+  document.body.appendChild(ov);
 }
 
 function openCreateUserModal() {
@@ -350,7 +376,8 @@ function closeCreateUserModal() { document.getElementById("createUserModal").cla
 
 async function dirCreateUser() {
   const fullName = document.getElementById("newFullName").value.trim();
-  const login = document.getElementById("newLogin").value.trim();
+  // Берём только часть до @ — на случай, если ввели полный email (логин@komfort.local)
+  const login = document.getElementById("newLogin").value.trim().toLowerCase().split("@")[0];
   const password = document.getElementById("newPassword").value;
   const phone = document.getElementById("newPhone").value.trim();
   const role = document.getElementById("newRole").value;
@@ -361,12 +388,20 @@ async function dirCreateUser() {
     errEl.textContent = t("dir.emp.errLoginPw") || "Введите логин и пароль";
     return;
   }
-  if (login.length < 3 || password.length < 4) {
-    errEl.textContent = t("dir.emp.errLen");
+  if (login.length < 3) { errEl.textContent = t("dir.emp.errLen") || "Логин минимум 3 символа"; return; }
+  if (!/^[a-z0-9_.-]+$/.test(login)) {
+    errEl.textContent = "Логин: только латиница, цифры и . _ - (без пробелов)";
+    return;
+  }
+  if (password.length < 6) {
+    errEl.textContent = t("dir.emp.errPwLen") || "Пароль минимум 6 символов";
     return;
   }
 
+  errEl.style.color = "var(--text-muted, #888)";
+  errEl.textContent = "Создаём аккаунт...";
   const res = await createUser({ fullName, login, password, phone, role }, dirSession.login);
+  errEl.style.color = "";
   if (!res.ok) { errEl.textContent = res.error; return; }
   closeCreateUserModal();
   const displayName = fullName || login;
@@ -376,12 +411,10 @@ async function dirCreateUser() {
 }
 
 async function dirChangePassword(login) {
-  const np = prompt(t("dir.emp.newPwPrompt", { login }));
-  if (!np) return;
-  if (np.length < 4) { showToast("error", t("dir.emp.tooShort"), t("dir.emp.minChars")); return; }
-  const res = await updateUserPassword(login, np, dirSession.login);
-  if (!res.ok) showToast("error", t("common.error"), res.error);
-  else showToast("success", t("common.success"), t("dir.emp.passwordChanged"));
+  // Сменить чужой пароль из браузера нельзя — пароли хранит Supabase Auth,
+  // для этого нужны серверные права (добавим позже через Edge Function).
+  showToast("info", "Пока недоступно",
+    "Смена пароля сотрудника появится позже. Сейчас пароль можно сбросить в Supabase.");
 }
 
 function dirDeleteUser(login) {
@@ -1323,6 +1356,443 @@ function renderWageTable() {
   `;
 }
 
+/* =========================================================
+   РАЗДЕЛ «ДОПУСК К СМЕНЕ»
+   ---------------------------------------------------------
+   Директор открывает турникет конкретным сотрудникам на сегодня.
+   Кого не допустили — отметиться не смогут.
+========================================================= */
+function _shiftWorkers() {
+  // допускаем тех, кто реально ходит на смену (не директора)
+  return getUsers().filter(u =>
+    u.role === "worker" || u.role === "supervisor" || u.role === "accountant"
+  );
+}
+
+function renderShift() {
+  const grid = document.getElementById("shiftGrid");
+  const countEl = document.getElementById("shiftCount");
+  if (!grid) return;
+
+  const users = _shiftWorkers();
+  const allowedNow = (typeof getAllowedTodayLogins === "function") ? getAllowedTodayLogins() : [];
+  const allowedSet = new Set(allowedNow);
+
+  if (countEl) {
+    countEl.innerHTML = `<i class="fa-solid fa-door-open"></i> ${escapeHtml(t("dir.shift.allowedToday") || "Допущено сегодня")}: <strong>${allowedSet.size}</strong> / ${users.length}`;
+  }
+
+  if (users.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-users-slash"></i><p>${escapeHtml(t("dir.emp.none") || "Нет сотрудников")}</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = users.map(u => {
+    const allowed = allowedSet.has(u.login);
+    const online = isOnline(u.login);
+    const initials = (u.fullName || u.login).slice(0, 2).toUpperCase();
+    const avatar = u.avatar
+      ? `<img src="${escapeHtml(u.avatar)}" class="shift-avatar" alt=""/>`
+      : `<div class="shift-avatar shift-avatar-empty">${escapeHtml(initials)}</div>`;
+
+    return `
+      <div class="shift-card ${allowed ? 'shift-card-on' : ''}">
+        <div class="shift-card-id">
+          <div class="shift-avatar-wrap">${avatar}${online ? '<span class="online-dot"></span>' : ''}</div>
+          <div>
+            <div class="shift-name">${escapeHtml(u.fullName || u.login)}</div>
+            <div class="shift-meta">
+              <span class="employee-role role-${u.role}">${roleLabel(u.role)}</span>
+              <span class="shift-status ${allowed ? 'shift-status-on' : 'shift-status-off'}">
+                ${allowed
+                  ? '<i class="fa-solid fa-circle-check"></i> ' + escapeHtml(t("dir.shift.on") || "Допущен")
+                  : '<i class="fa-solid fa-circle-minus"></i> ' + escapeHtml(t("dir.shift.off") || "Закрыт")}
+              </span>
+            </div>
+          </div>
+        </div>
+        <label class="shift-toggle" title="${escapeHtml(t("dir.shift.toggleHint") || "Открыть/закрыть турникет на сегодня")}">
+          <input type="checkbox" ${allowed ? "checked" : ""} onchange="dirToggleShift('${escapeHtml(u.login)}', this.checked)"/>
+          <span class="shift-toggle-track"><span class="shift-toggle-thumb"></span></span>
+        </label>
+      </div>`;
+  }).join("");
+}
+
+function dirToggleShift(login, allowed) {
+  if (typeof setTurnstilePermit === "function") {
+    setTurnstilePermit(login, allowed, dirSession.login);
+  }
+  renderShift();
+}
+
+function dirAllowAllShift() {
+  if (!confirm(t("dir.shift.confirmAll") || "Открыть турникет всем сотрудникам на сегодня?")) return;
+  const logins = _shiftWorkers().map(u => u.login);
+  if (typeof allowTurnstileForAll === "function") allowTurnstileForAll(logins, dirSession.login);
+  showToast("success", t("common.success") || "Готово", t("dir.shift.allowedAllMsg") || "Турникет открыт всем на сегодня");
+  renderShift();
+}
+
+function dirClearAllShift() {
+  if (!confirm(t("dir.shift.confirmClear") || "Закрыть турникет всем? Никто не сможет отметиться, пока вы не откроете снова.")) return;
+  if (typeof clearAllTurnstilePermits === "function") clearAllTurnstilePermits(dirSession.login);
+  showToast("info", t("common.info") || "Готово", t("dir.shift.clearedAllMsg") || "Турникет закрыт для всех");
+  renderShift();
+}
+
+/* =========================================================
+   РАЗДЕЛ «ЗАРПЛАТЫ СОТРУДНИКОВ»
+   ---------------------------------------------------------
+   Сводка по каждому сотруднику: сколько дней отработал,
+   сколько часов, сколько начислено, сколько за сегодня,
+   сколько незакрытых смен и когда был последний выход.
+   Считает через getWorkDaysForUser() из auth.js — те же
+   данные, что и таблица смен, но свёрнутые по человеку.
+========================================================= */
+function _salFmtMoney(n) {
+  return Number(n || 0).toLocaleString("ru-RU");
+}
+function _salFmtDate(key) {
+  if (!key) return "—";
+  const [y, m, dd] = key.split("-");
+  return `${dd}.${m}.${y}`;
+}
+
+/* Собирает строку-сводку по одному сотруднику с учётом фильтра дат */
+function _salComputeForUser(u, from, to) {
+  let days = (typeof getWorkDaysForUser === "function") ? getWorkDaysForUser(u.login) : [];
+  if (from) days = days.filter(d => d.date >= from);
+  if (to) days = days.filter(d => d.date <= to);
+
+  let daysWorked = 0, openShifts = 0, totalHours = 0, totalEarned = 0, lastDate = null;
+  const todayKey = new Date().toISOString().slice(0, 10);
+  let todayEarned = 0;
+
+  days.forEach(d => {
+    if (d.completed) {
+      daysWorked++;
+      totalHours += d.hours || 0;
+      totalEarned += d.earned || 0;
+      if (d.date === todayKey) todayEarned += d.earned || 0;
+    } else {
+      openShifts++;
+    }
+    if (!lastDate || d.date > lastDate) lastDate = d.date;
+  });
+
+  return {
+    login: u.login,
+    name: u.fullName || u.login,
+    role: u.role,
+    avatar: u.avatar || "",
+    online: (typeof isOnline === "function") ? isOnline(u.login) : false,
+    daysWorked, openShifts,
+    totalHours: Math.round(totalHours * 10) / 10,
+    totalEarned, todayEarned, lastDate,
+  };
+}
+
+function _salGetRows() {
+  const from = document.getElementById("salFrom")?.value || "";
+  const to = document.getElementById("salTo")?.value || "";
+  // Оплачиваемые роли (директор не получает дневную ставку)
+  const users = getUsers().filter(u =>
+    u.role === "worker" || u.role === "accountant" || u.role === "supervisor"
+  );
+  return users
+    .map(u => _salComputeForUser(u, from, to))
+    .sort((a, b) => b.totalEarned - a.totalEarned || a.name.localeCompare(b.name, "ru"));
+}
+
+function renderSalaries() {
+  const grid = document.getElementById("salariesGrid");
+  const totalsEl = document.getElementById("salTotals");
+  const rateEl = document.getElementById("salDailyRate");
+  if (!grid) return;
+
+  // Подпись ставки
+  const dailyRate = (typeof DAILY_WAGE !== "undefined") ? DAILY_WAGE : 0;
+  if (rateEl) rateEl.textContent = `${_salFmtMoney(dailyRate)} ${t("services.currency") || "Сум"}`;
+
+  const rows = _salGetRows();
+
+  // Итоги по компании
+  const grand = rows.reduce((acc, r) => {
+    acc.payroll += r.totalEarned;
+    acc.days += r.daysWorked;
+    acc.hours += r.totalHours;
+    acc.today += r.todayEarned;
+    acc.open += r.openShifts;
+    if (r.daysWorked > 0) acc.active++;
+    return acc;
+  }, { payroll: 0, days: 0, hours: 0, today: 0, open: 0, active: 0 });
+
+  // Общий долг по авансам
+  let totalDebt = 0;
+  if (typeof getAdvanceStatusForUser === "function") {
+    rows.forEach(r => { totalDebt += getAdvanceStatusForUser(r.login).debt || 0; });
+  }
+
+  if (totalsEl) {
+    totalsEl.innerHTML = `
+      <div class="sal-total-card sal-total-money">
+        <div class="sal-total-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+        <div>
+          <div class="sal-total-val">${_salFmtMoney(grand.payroll)}</div>
+          <div class="sal-total-lbl">${escapeHtml(t("dir.sal.totalPayroll") || "Всего начислено, Сум")}</div>
+        </div>
+      </div>
+      <div class="sal-total-card">
+        <div class="sal-total-icon"><i class="fa-solid fa-calendar-check"></i></div>
+        <div>
+          <div class="sal-total-val">${grand.days}</div>
+          <div class="sal-total-lbl">${escapeHtml(t("dir.sal.totalDays") || "Оплачено смен")}</div>
+        </div>
+      </div>
+      <div class="sal-total-card">
+        <div class="sal-total-icon"><i class="fa-solid fa-users"></i></div>
+        <div>
+          <div class="sal-total-val">${grand.active}</div>
+          <div class="sal-total-lbl">${escapeHtml(t("dir.sal.activeStaff") || "Работали в периоде")}</div>
+        </div>
+      </div>
+      <div class="sal-total-card">
+        <div class="sal-total-icon"><i class="fa-solid fa-bolt"></i></div>
+        <div>
+          <div class="sal-total-val">${_salFmtMoney(grand.today)}</div>
+          <div class="sal-total-lbl">${escapeHtml(t("dir.sal.todayPayroll") || "Начислено сегодня")}</div>
+        </div>
+      </div>
+      ${grand.open > 0 ? `
+      <div class="sal-total-card sal-total-warn">
+        <div class="sal-total-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div>
+          <div class="sal-total-val">${grand.open}</div>
+          <div class="sal-total-lbl">${escapeHtml(t("dir.sal.openShifts") || "Незакрытых смен")}</div>
+        </div>
+      </div>` : ""}
+      ${totalDebt > 0 ? `
+      <div class="sal-total-card sal-total-debt">
+        <div class="sal-total-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+        <div>
+          <div class="sal-total-val">${_salFmtMoney(totalDebt)}</div>
+          <div class="sal-total-lbl">${escapeHtml(t("dir.sal.totalDebt") || "Долг по авансам, Сум")}</div>
+        </div>
+      </div>` : ""}
+    `;
+  }
+
+  if (rows.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-money-check-dollar"></i><p>${escapeHtml(t("dir.sal.empty") || "Нет сотрудников или данных о сменах")}</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = rows.map(r => {
+    const initials = (r.name || r.login).slice(0, 2).toUpperCase();
+    const avatar = r.avatar
+      ? `<img src="${escapeHtml(r.avatar)}" class="sal-avatar" alt=""/>`
+      : `<div class="sal-avatar sal-avatar-empty">${escapeHtml(initials)}</div>`;
+    const openBadge = r.openShifts > 0
+      ? `<span class="sal-open-badge" title="${escapeHtml(t("dir.sal.openHint") || "Смены без отметки об уходе — не оплачены")}">
+           <i class="fa-solid fa-hourglass-half"></i> ${r.openShifts} ${escapeHtml(t("dir.sal.openShort") || "не закрыто")}
+         </span>`
+      : "";
+
+    // Блок аванса/долга
+    const adv = (typeof getAdvanceStatusForUser === "function")
+      ? getAdvanceStatusForUser(r.login) : { status: "none" };
+    let advBlock = "";
+    if (adv.status === "owing") {
+      advBlock = `
+        <div class="sal-adv sal-adv-owing">
+          <div class="sal-adv-row">
+            <span class="sal-adv-label"><i class="fa-solid fa-hand-holding-dollar"></i> ${escapeHtml(t("dir.adv.debtTitle") || "Долг по авансу")}</span>
+            <span class="sal-adv-amount">${_salFmtMoney(adv.debt)} ${escapeHtml(t("services.currency") || "Сум")}</span>
+          </div>
+          <div class="sal-adv-bar"><div class="sal-adv-bar-fill" style="width:${adv.progress}%"></div></div>
+          <div class="sal-adv-info">
+            <span>${escapeHtml(t("dir.adv.given") || "Выдано")}: <strong>${_salFmtMoney(adv.totalAdvanced)}</strong></span>
+            <span class="sal-adv-remain"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(t("dir.adv.mustWork") || "доработать")} <strong>${adv.daysRemaining} ${escapeHtml(t("dir.adv.daysWord") || "дн.")}</strong></span>
+          </div>
+          <div class="sal-adv-sub muted">${escapeHtml(t("dir.adv.workedOff") || "Отработано")}: ${adv.daysWorkedOff} ${escapeHtml(t("dir.adv.of") || "из")} ${adv.daysTotal} ${escapeHtml(t("dir.adv.daysWord") || "дн.")}</div>
+        </div>`;
+    } else if (adv.status === "cleared") {
+      advBlock = `
+        <div class="sal-adv sal-adv-cleared">
+          <div class="sal-adv-row">
+            <span class="sal-adv-label"><i class="fa-solid fa-circle-check"></i> ${escapeHtml(t("dir.adv.clearedTitle") || "Аванс отработан")}</span>
+            <span class="sal-adv-amount">${_salFmtMoney(adv.totalAdvanced)} ${escapeHtml(t("services.currency") || "Сум")}</span>
+          </div>
+          <div class="sal-adv-bar"><div class="sal-adv-bar-fill sal-adv-bar-done" style="width:100%"></div></div>
+          <div class="sal-adv-sub muted">${escapeHtml(t("dir.adv.clearedSub") || "Сотрудник полностью отработал долг. Можно закрыть запись.")}</div>
+          <button class="ghost-btn sal-adv-settle" onclick="event.stopPropagation(); dirSettleAdvance('${escapeHtml(r.login)}')">
+            <i class="fa-solid fa-check-double"></i> ${escapeHtml(t("dir.adv.close") || "Закрыть долг")}
+          </button>
+        </div>`;
+    }
+
+    return `
+      <div class="sal-card" onclick="openEmployeeDetail('${escapeHtml(r.login)}')" title="${escapeHtml(t("dir.sal.openCard") || "Открыть карточку сотрудника")}">
+        <div class="sal-card-head">
+          <div class="sal-avatar-wrap">
+            ${avatar}
+            ${r.online ? '<span class="online-dot"></span>' : ''}
+          </div>
+          <div class="sal-card-id">
+            <div class="sal-card-name">${escapeHtml(r.name)}</div>
+            <div class="sal-card-meta">
+              <span class="employee-role role-${r.role}">${roleLabel(r.role)}</span>
+              <span class="muted sal-card-login">@${escapeHtml(r.login)}</span>
+            </div>
+          </div>
+          <div class="sal-card-earned">
+            <div class="sal-card-earned-val">${_salFmtMoney(r.totalEarned)}</div>
+            <div class="sal-card-earned-lbl muted">${escapeHtml(t("dir.sal.earnedSum") || "Начислено, Сум")}</div>
+          </div>
+        </div>
+        <div class="sal-card-stats">
+          <div class="sal-stat">
+            <div class="sal-stat-val">${r.daysWorked}</div>
+            <div class="sal-stat-lbl">${escapeHtml(t("dir.sal.days") || "Дней")}</div>
+          </div>
+          <div class="sal-stat">
+            <div class="sal-stat-val">${r.totalHours}</div>
+            <div class="sal-stat-lbl">${escapeHtml(t("dir.sal.hours") || "Часов")}</div>
+          </div>
+          <div class="sal-stat">
+            <div class="sal-stat-val">${_salFmtMoney(r.todayEarned)}</div>
+            <div class="sal-stat-lbl">${escapeHtml(t("dir.sal.today") || "Сегодня")}</div>
+          </div>
+          <div class="sal-stat">
+            <div class="sal-stat-val">${_salFmtDate(r.lastDate)}</div>
+            <div class="sal-stat-lbl">${escapeHtml(t("dir.sal.last") || "Посл. смена")}</div>
+          </div>
+        </div>
+        ${advBlock}
+        <div class="sal-card-foot">
+          ${openBadge}
+          <button class="ghost-btn sal-give-btn" onclick="event.stopPropagation(); openAdvanceModal('${escapeHtml(r.login)}')">
+            <i class="fa-solid fa-hand-holding-dollar"></i> ${escapeHtml(t("dir.adv.giveShort") || "Аванс")}
+          </button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function salariesResetFilter() {
+  const f = document.getElementById("salFrom");
+  const to = document.getElementById("salTo");
+  if (f) f.value = "";
+  if (to) to.value = "";
+  renderSalaries();
+}
+
+/* Экспорт сводки в CSV (Excel открывает напрямую) */
+function salariesExportCsv() {
+  const rows = _salGetRows();
+  if (rows.length === 0) {
+    showToast("info", t("common.info") || "Инфо", t("dir.sal.empty") || "Нет данных");
+    return;
+  }
+  const head = ["Логин", "Имя", "Роль", "Дней отработано", "Часов", "Незакрытых смен", "Начислено (Сум)", "Сегодня (Сум)", "Последняя смена"];
+  const lines = rows.map(r => [
+    r.login, r.name, roleLabel(r.role), r.daysWorked, r.totalHours,
+    r.openShifts, r.totalEarned, r.todayEarned, _salFmtDate(r.lastDate),
+  ]);
+  const esc = (v) => {
+    const s = String(v == null ? "" : v);
+    return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [head, ...lines].map(row => row.map(esc).join(";")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `zarplaty_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* === АВАНСЫ: модалка и действия === */
+let _advanceTargetLogin = null;
+
+function openAdvanceModal(login) {
+  _advanceTargetLogin = login;
+  const u = (typeof getUserByLogin === "function") ? getUserByLogin(login) : null;
+  const nameEl = document.getElementById("advanceEmpName");
+  if (nameEl) nameEl.textContent = u ? (u.fullName || login) + " (@" + login + ")" : login;
+
+  document.getElementById("advanceAmount").value = "";
+  document.getElementById("advanceNote").value = "";
+  const dateEl = document.getElementById("advanceDate");
+  if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+  const err = document.getElementById("advanceError");
+  if (err) err.textContent = "";
+  document.getElementById("advancePreview").innerHTML = "";
+
+  const modal = document.getElementById("advanceModal");
+  modal.classList.add("open");
+}
+
+function closeAdvanceModal() {
+  document.getElementById("advanceModal").classList.remove("open");
+  _advanceTargetLogin = null;
+}
+
+/* Показывает, на сколько дней хватит вводимой суммы */
+function advancePreviewDays() {
+  const amount = Number(document.getElementById("advanceAmount").value) || 0;
+  const rate = (typeof DAILY_WAGE !== "undefined") ? DAILY_WAGE : 0;
+  const box = document.getElementById("advancePreview");
+  if (!box) return;
+  if (amount <= 0 || rate <= 0) { box.innerHTML = ""; return; }
+  const days = Math.ceil(amount / rate);
+  box.innerHTML = `<i class="fa-solid fa-calculator"></i> ${escapeHtml(t("dir.adv.equals") || "Это")}
+    <strong>${days}</strong> ${escapeHtml(t("dir.adv.daysToWork") || "рабочих дней отработки")}
+    <span class="muted">(${rate.toLocaleString("ru-RU")} ${escapeHtml(t("services.currency") || "Сум")}/${escapeHtml(t("dir.adv.day") || "день")})</span>`;
+}
+
+function dirSubmitAdvance() {
+  const err = document.getElementById("advanceError");
+  err.textContent = "";
+  const login = _advanceTargetLogin;
+  if (!login) { closeAdvanceModal(); return; }
+
+  const amount = Number(document.getElementById("advanceAmount").value) || 0;
+  const date = document.getElementById("advanceDate").value || new Date().toISOString().slice(0, 10);
+  const note = document.getElementById("advanceNote").value || "";
+
+  if (amount <= 0) {
+    err.textContent = t("dir.adv.errAmount") || "Введите сумму больше нуля";
+    return;
+  }
+
+  const res = (typeof addAdvance === "function")
+    ? addAdvance(login, amount, date, note, dirSession.login)
+    : { ok: false, error: "Функция недоступна" };
+
+  if (!res.ok) { err.textContent = res.error || "Ошибка"; return; }
+
+  closeAdvanceModal();
+  showToast("success", t("common.success") || "Готово", t("dir.adv.saved") || "Аванс выдан");
+  renderSalaries();
+}
+
+function dirSettleAdvance(login) {
+  const ok = confirm(t("dir.adv.confirmClose") || "Закрыть долг по авансу для этого сотрудника? Запись об авансе будет архивирована.");
+  if (!ok) return;
+  const res = (typeof settleAdvancesForUser === "function")
+    ? settleAdvancesForUser(login, dirSession.login)
+    : { ok: false };
+  if (res.ok) {
+    showToast("success", t("common.success") || "Готово", t("dir.adv.closed") || "Долг закрыт");
+    renderSalaries();
+  }
+}
+
 function fillAttendanceUserFilter() {
   const select = document.getElementById("attFilterUser");
   if (!select) return;
@@ -1435,8 +1905,8 @@ function renderAttendanceGrid() {
       ? `<span class="att-badge att-badge-in"><i class="fa-solid fa-right-to-bracket"></i> ${t("dir.att.in")}</span>`
       : `<span class="att-badge att-badge-out"><i class="fa-solid fa-right-from-bracket"></i> ${t("dir.att.out")}</span>`;
 
-    const photoHtml = r.photo
-      ? `<img src="${r.photo}" alt="селфи" class="att-photo"/>`
+    const photoHtml = r.photoUrl
+      ? `<img data-att-path="${escapeHtml(r.photoUrl)}" alt="селфи" class="att-photo"/>`
       : '<div class="att-no-photo"><i class="fa-solid fa-user"></i></div>';
 
     const addressHtml = r.address
@@ -1463,6 +1933,19 @@ function renderAttendanceGrid() {
       </div>
     `;
   }).join("");
+
+  if (typeof fillAttPhotos === "function") fillAttPhotos(grid);
+}
+
+/* Подставляет подписанные ссылки в <img data-att-path> (фото из приватного Storage) */
+function fillAttPhotos(container) {
+  if (!container || typeof getAttendanceSignedUrl !== "function") return;
+  container.querySelectorAll("img[data-att-path]").forEach(async (img) => {
+    const path = img.getAttribute("data-att-path");
+    if (!path) return;
+    const url = await getAttendanceSignedUrl(path);
+    if (url) img.src = url;
+  });
 }
 
 function dirRefreshAttendance() {
@@ -1510,8 +1993,8 @@ function openAttendanceDetail(id) {
     `;
   }
 
-  const photoHtml = r.photo
-    ? `<img src="${r.photo}" alt="селфи" class="att-detail-photo"/>`
+  const photoHtml = r.photoUrl
+    ? `<img data-att-path="${escapeHtml(r.photoUrl)}" alt="селфи" class="att-detail-photo"/>`
     : '<div class="att-detail-no-photo"><i class="fa-solid fa-user"></i><p>Фото не сохранено</p></div>';
 
   document.getElementById("attDetailBody").innerHTML = `
@@ -1574,6 +2057,7 @@ function openAttendanceDetail(id) {
     </div>
   `;
 
+  if (typeof fillAttPhotos === "function") fillAttPhotos(document.getElementById("attDetailBody"));
   document.getElementById("attDetailModal").classList.add("open");
 }
 

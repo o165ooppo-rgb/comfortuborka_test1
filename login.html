@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="theme.css"/>
 </head>
 <body class="login-body">
 
@@ -59,10 +60,26 @@
 
         <div id="loginError" class="login-error" role="alert"></div>
 
-        <button type="submit" class="primary login-submit" onclick="doLogin()">
+        <button type="submit" class="primary login-submit" id="mainLoginBtn" onclick="doLogin(); return false;">
           <i class="fa-solid fa-right-to-bracket"></i>
           <span data-i18n="login.submit">Войти</span>
         </button>
+
+        <!-- Двухэтапный код (появляется если включён у пользователя) -->
+        <div id="twofaBlock" style="display:none">
+          <label class="field">
+            <span class="field-label"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="login.twofaLabel">Код двухэтапной проверки</span></span>
+            <input type="password" id="twofaCode" inputmode="numeric" autocomplete="one-time-code"
+                   data-i18n-ph="login.twofaPh" placeholder="Введите ваш код"
+                   onkeypress="if(event.key==='Enter')twofaSubmit()"/>
+          </label>
+          <button type="button" class="primary login-submit" onclick="twofaSubmit()">
+            <i class="fa-solid fa-check"></i> <span data-i18n="login.twofaSubmit">Подтвердить</span>
+          </button>
+          <button type="button" class="ghost-btn" style="width:100%;margin-top:8px" onclick="twofaCancel()">
+            <span data-i18n="login.twofaCancel">Отмена</span>
+          </button>
+        </div>
 
         <p class="login-hint muted" data-i18n="login.hint">
           У вас нет аккаунта? Обратитесь к директору — регистрация только через него.
@@ -74,8 +91,10 @@
   </div>
 
   <script src="i18n.js"></script>
-  <script src="firebase-sync.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-client.js"></script>
   <script src="auth.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     // Применяем переводы и рисуем переключатель языка
     document.getElementById("loginLangRow").innerHTML = renderLangSwitcher();
@@ -101,7 +120,11 @@
       else { inp.type = "password"; icon.className = "fa-solid fa-eye"; }
     }
 
+    let _loginBusy = false;
+    let _pendingSession = null;
+
     async function doLogin() {
+      if (_loginBusy) return;            // защита от двойного входа
       const loginStr = document.getElementById("loginInput").value.trim();
       const pw = document.getElementById("passwordInput").value;
       const errEl = document.getElementById("loginError");
@@ -112,22 +135,107 @@
         return;
       }
 
-      if (window.FB && !window.FB.isReady()) {
-        errEl.textContent = t("login.connecting");
-        await window.FB.waitReady();
-        errEl.textContent = "";
-      }
+      _loginBusy = true;
+      try {
+        // 1) Вход через Supabase Auth
+        const { data, error } = await window.sb.auth.signInWithPassword({
+          email: loginToEmail(loginStr),
+          password: pw,
+        });
+        if (error || !data || !data.user) {
+          errEl.textContent = t("login.errBad");
+          return;
+        }
 
-      const res = await login(loginStr, pw);
-      if (!res.ok) {
-        errEl.textContent = t("login.errBad");
-        return;
-      }
+        // 2) Профиль из таблицы users
+        const { data: profile, error: pErr } = await window.sb
+          .from("users").select("*").eq("id", data.user.id).single();
+        if (pErr || !profile) {
+          errEl.textContent = t("login.errBad");
+          return;
+        }
 
-      redirectByRole(res.session);
+        const session = {
+          login: profile.login,
+          role: profile.role,
+          fullName: profile.full_name || profile.login,
+          profileComplete: (profile.role === "director") ? true : (profile.profile_complete === true),
+          loginAt: new Date().toISOString(),
+        };
+
+        // 3) Двухэтапная проверка — если включена у пользователя
+        let twofaOn = false;
+        try {
+          const { data: st, error: stErr } = await window.sb.rpc("twofa_status");
+          if (!stErr && st === true) twofaOn = true;
+        } catch (e) { /* если функции ещё нет — пропускаем (fail-open) */ }
+
+        if (twofaOn) {
+          _pendingSession = session;
+          showTwoFA();
+          return;
+        }
+
+        await finishLogin(session);
+      } finally {
+        _loginBusy = false;
+      }
     }
 
-    document.getElementById("loginForm").addEventListener("submit", doLogin);
+    function showTwoFA() {
+      document.getElementById("mainLoginBtn").style.display = "none";
+      document.getElementById("loginInput").disabled = true;
+      document.getElementById("passwordInput").disabled = true;
+      const blk = document.getElementById("twofaBlock");
+      blk.style.display = "block";
+      const code = document.getElementById("twofaCode");
+      code.value = "";
+      setTimeout(() => code.focus(), 50);
+    }
+
+    async function twofaCancel() {
+      _pendingSession = null;
+      try { await window.sb.auth.signOut(); } catch (e) {}
+      document.getElementById("twofaBlock").style.display = "none";
+      document.getElementById("mainLoginBtn").style.display = "";
+      document.getElementById("loginInput").disabled = false;
+      document.getElementById("passwordInput").disabled = false;
+      document.getElementById("loginError").textContent = "";
+    }
+
+    async function twofaSubmit() {
+      const errEl = document.getElementById("loginError");
+      errEl.textContent = "";
+      const code = document.getElementById("twofaCode").value.trim();
+      if (!code) { errEl.textContent = t("login.err2faEmpty") || "Введите код"; return; }
+
+      let ok = false;
+      try {
+        const { data: vok, error: vErr } = await window.sb.rpc("verify_twofa", { p_code: code });
+        ok = (!vErr && vok === true);
+      } catch (e) { ok = false; }
+
+      if (!ok) {
+        errEl.textContent = t("login.err2fa") || "Неверный код двухэтапной проверки";
+        return;
+      }
+      const session = _pendingSession;
+      _pendingSession = null;
+      await finishLogin(session);
+    }
+
+    async function finishLogin(session) {
+      // Кладём сессию
+      localStorage.setItem("kus_session", JSON.stringify(session));
+      // Новый id устройства на этот вход + регистрируем как «активный сеанс»
+      try {
+        if (typeof resetDeviceId === "function") resetDeviceId();
+        if (typeof registerThisDevice === "function") await registerThisDevice();
+      } catch (e) {}
+      // Редирект по роли
+      redirectByRole(session);
+    }
+
     document.getElementById("passwordInput").addEventListener("keypress", e => {
       if (e.key === "Enter") doLogin();
     });

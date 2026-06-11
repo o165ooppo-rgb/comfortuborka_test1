@@ -7,6 +7,7 @@
 
 let profileSession = null;
 let _avatarDataUrl = "";
+let _passportDataUrl = "";
 let _profileLat = null;
 let _profileLng = null;
 
@@ -39,7 +40,7 @@ let _profileLng = null;
   profileSession = s;
 
   // Если профиль уже заполнен — нечего тут делать
-  if (typeof isProfileComplete === "function" && isProfileComplete(s.login) && s.role !== "director") {
+  if (s.profileComplete === true && s.role !== "director") {
     redirectByRole(s);
     return;
   }
@@ -62,12 +63,20 @@ let _profileLng = null;
     }
     if (fn) document.getElementById("pFirstName").value = fn;
     if (ln) document.getElementById("pLastName").value = ln;
-    if (u.phone) document.getElementById("pPhone").value = u.phone;
+    if (u.phone) {
+      // в поле храним только 9 цифр после +998
+      document.getElementById("pPhone").value = String(u.phone).replace(/\D/g, "").replace(/^998/, "").slice(0, 9);
+    }
     if (u.address) document.getElementById("pAddress").value = u.address;
     if (u.birthDate) document.getElementById("pBirthDate").value = u.birthDate;
+    if (u.lat != null && u.lng != null) { _profileLat = u.lat; _profileLng = u.lng; }
     if (u.avatar) {
       _avatarDataUrl = u.avatar;
       showAvatar(u.avatar);
+    }
+    if (u.passport) {
+      _passportDataUrl = u.passport;
+      showPassport(u.passport);
     }
   }
 
@@ -134,6 +143,60 @@ function compressImage(dataUrl, size, callback) {
     } catch (e) {
       callback(dataUrl); // fallback
     }
+  };
+  img.onerror = function () { callback(dataUrl); };
+  img.src = dataUrl;
+}
+
+/* === Паспорт === */
+function profileHandlePassport(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    showToast("error", t("common.error") || "Ошибка", "Только изображения");
+    event.target.value = "";
+    return;
+  }
+  if (file.size > 6 * 1024 * 1024) {
+    showToast("error", t("common.error") || "Ошибка", "Фото слишком большое (макс 6 МБ)");
+    event.target.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    // Паспорт сжимаем шире (до 1024px по длинной стороне), чтобы текст оставался читаемым
+    compressImageWide(e.target.result, 1024, (compressed) => {
+      _passportDataUrl = compressed;
+      showPassport(compressed);
+    });
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
+}
+
+function showPassport(dataUrl) {
+  const img = document.getElementById("profilePassportImg");
+  const empty = document.getElementById("profilePassportEmpty");
+  if (img) { img.src = dataUrl; img.style.display = "block"; }
+  if (empty) empty.style.display = "none";
+}
+
+/* Сжатие с сохранением пропорций (для паспорта — не квадрат) */
+function compressImageWide(dataUrl, maxSize, callback) {
+  const img = new Image();
+  img.onload = function () {
+    let w = img.width, h = img.height;
+    if (Math.max(w, h) > maxSize) {
+      const k = maxSize / Math.max(w, h);
+      w = Math.round(w * k);
+      h = Math.round(h * k);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+    try { callback(canvas.toDataURL("image/jpeg", 0.7)); }
+    catch (e) { callback(dataUrl); }
   };
   img.onerror = function () { callback(dataUrl); };
   img.src = dataUrl;
@@ -219,7 +282,8 @@ function profileSubmit() {
 
   const firstName = document.getElementById("pFirstName").value.trim();
   const lastName = document.getElementById("pLastName").value.trim();
-  const phone = document.getElementById("pPhone").value.trim();
+  const phoneDigits = document.getElementById("pPhone").value.replace(/\D/g, "");
+  const phone = "+998" + phoneDigits;
   const address = document.getElementById("pAddress").value.trim();
   const birthDate = document.getElementById("pBirthDate").value;
 
@@ -240,20 +304,24 @@ function profileSubmit() {
     showProfileError(t("profile.errBirthFuture") || "Дата рождения не может быть в будущем");
     return;
   }
-  if (!phone) {
-    showProfileError(t("profile.errPhone") || "Введите номер телефона");
-    return;
-  }
-  if (phone.replace(/\D/g, "").length < 7) {
-    showProfileError(t("profile.errPhoneBad") || "Введите корректный номер телефона");
+  if (phoneDigits.length !== 9) {
+    showProfileError(t("profile.errPhoneBad") || "Введите 9 цифр номера после +998");
     return;
   }
   if (!address) {
     showProfileError(t("profile.errAddress") || "Введите адрес проживания");
     return;
   }
+  if (_profileLat == null || _profileLng == null) {
+    showProfileError(t("profile.errGeo") || "Нажмите «Определить» и разрешите доступ к геолокации — точка дома обязательна");
+    return;
+  }
   if (!_avatarDataUrl) {
     showProfileError(t("profile.errPhoto") || "Добавьте фото на аватар");
+    return;
+  }
+  if (!_passportDataUrl) {
+    showProfileError(t("profile.errPassport") || "Сфотографируйте паспорт");
     return;
   }
 
@@ -264,6 +332,7 @@ function profileSubmit() {
     address: address,
     birthDate: birthDate,
     avatar: _avatarDataUrl,
+    passport: _passportDataUrl,
     lat: _profileLat,
     lng: _profileLng,
   }, profileSession.login);

@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="theme.css"/>
 </head>
 <body class="director-body">
 
@@ -36,6 +37,8 @@
       <button class="dir-nav-btn" data-tab="employees"><i class="fa-solid fa-users"></i> <span data-i18n="dir.tab.employees">Сотрудники</span></button>
       <button class="dir-nav-btn" data-tab="services"><i class="fa-solid fa-broom"></i> <span data-i18n="dir.tab.services">Услуги</span></button>
       <button class="dir-nav-btn" data-tab="attendance"><i class="fa-solid fa-id-card-clip"></i> <span data-i18n="dir.tab.attendance">Посещаемость</span></button>
+      <button class="dir-nav-btn" data-tab="shift"><i class="fa-solid fa-door-open"></i> <span data-i18n="dir.tab.shift">Допуск</span></button>
+      <button class="dir-nav-btn" data-tab="salaries"><i class="fa-solid fa-money-bill-wave"></i> <span data-i18n="dir.tab.salaries">Зарплаты</span></button>
       <button class="dir-nav-btn" data-tab="chat"><i class="fa-solid fa-comments"></i> <span data-i18n="dir.tab.chat">Чат</span> <span id="chatBadge" class="nav-badge" style="display:none">0</span></button>
       <button class="dir-nav-btn" data-tab="tasks"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="dir.tab.tasks">Задания</span></button>
       <button class="dir-nav-btn" data-tab="orders"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="dir.tab.orders">Заказы</span></button>
@@ -127,6 +130,16 @@
       <div id="employeesGrid" class="employees-grid"></div>
     </section>
 
+    <!-- Tab: Employee Detail (полная карточка справа) -->
+    <section class="dir-tab" data-tab="employeeDetail">
+      <div class="dir-head emp-detail-head">
+        <button class="ghost-btn emp-back-btn" onclick="switchTab('employees')">
+          <i class="fa-solid fa-arrow-left"></i> <span data-i18n="dir.emp.back">Назад к списку</span>
+        </button>
+      </div>
+      <div id="employeeDetailBody"></div>
+    </section>
+
     <!-- Tab: Services -->
     <section class="dir-tab" data-tab="services">
       <div class="dir-head">
@@ -189,6 +202,78 @@
       <div id="attWageSection" class="att-wage-section"></div>
 
       <div id="attendanceGrid" class="attendance-grid"></div>
+    </section>
+
+    <!-- Tab: Shift permits (Допуск к смене) -->
+    <section class="dir-tab" data-tab="shift">
+      <div class="dir-head">
+        <div>
+          <h1 data-i18n="dir.shift.title">Допуск к смене</h1>
+          <p class="muted" data-i18n="dir.shift.sub">Откройте турникет тем, кто работает сегодня. Остальные отметиться не смогут.</p>
+        </div>
+      </div>
+
+      <div class="shift-note">
+        <i class="fa-solid fa-circle-info"></i>
+        <span data-i18n="dir.shift.note">Допуск действует только на сегодня. Завтра откройте смену заново — так никто лишний не отметится и не запишет себе день.</span>
+      </div>
+
+      <div class="shift-bar">
+        <div class="shift-count" id="shiftCount">—</div>
+        <div style="flex:1"></div>
+        <button class="ghost-btn" onclick="dirAllowAllShift()">
+          <i class="fa-solid fa-users"></i> <span data-i18n="dir.shift.allowAll">Допустить всех</span>
+        </button>
+        <button class="ghost-btn" onclick="dirClearAllShift()">
+          <i class="fa-solid fa-user-slash"></i> <span data-i18n="dir.shift.clearAll">Закрыть всем</span>
+        </button>
+      </div>
+
+      <div id="shiftGrid" class="shift-grid"></div>
+    </section>
+
+    <!-- Tab: Salaries (Зарплаты сотрудников) -->
+    <section class="dir-tab" data-tab="salaries">
+      <div class="dir-head">
+        <div>
+          <h1 data-i18n="dir.sal.title">Зарплаты сотрудников</h1>
+          <p class="muted" data-i18n="dir.sal.sub">Сколько каждый отработал и сколько начислено</p>
+        </div>
+        <button class="ghost-btn" onclick="salariesExportCsv()">
+          <i class="fa-solid fa-download"></i> <span data-i18n="dir.sal.export">Экспорт CSV</span>
+        </button>
+      </div>
+
+      <!-- Пояснение для директора -->
+      <div class="sal-note">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>
+          <strong data-i18n="dir.sal.rateLabel">Ставка:</strong>
+          <span id="salDailyRate">—</span> <span data-i18n="dir.sal.perDay">за полный рабочий день (есть и приход, и уход).</span>
+          <span data-i18n="dir.sal.openNote">Незакрытые смены (только приход без ухода) не оплачиваются, пока сотрудник не отметит уход.</span>
+        </span>
+      </div>
+
+      <!-- Фильтр по периоду -->
+      <div class="sal-filters">
+        <div class="sal-filter">
+          <label class="label"><i class="fa-regular fa-calendar"></i> <span data-i18n="dir.sal.from">С даты</span></label>
+          <input type="date" id="salFrom" onchange="renderSalaries()"/>
+        </div>
+        <div class="sal-filter">
+          <label class="label"><i class="fa-regular fa-calendar"></i> <span data-i18n="dir.sal.to">По дату</span></label>
+          <input type="date" id="salTo" onchange="renderSalaries()"/>
+        </div>
+        <button class="ghost-btn" onclick="salariesResetFilter()">
+          <i class="fa-solid fa-rotate-left"></i> <span data-i18n="dir.sal.reset">Сбросить</span>
+        </button>
+      </div>
+
+      <!-- Итоги по компании -->
+      <div class="sal-totals" id="salTotals"></div>
+
+      <!-- Карточки по сотрудникам -->
+      <div id="salariesGrid" class="sal-grid"></div>
     </section>
 
     <!-- Tab: Chat -->
@@ -362,14 +447,6 @@
     </div>
   </div>
 
-  <!-- Modal: Employee Detail -->
-  <div id="employeeDetailModal" class="modal" aria-hidden="true">
-    <div class="modal-content modal-content-wide emp-detail-modal">
-      <button class="close" onclick="closeEmployeeDetail()" aria-label="Close">&times;</button>
-      <div id="employeeDetailBody"></div>
-    </div>
-  </div>
-
   <!-- Modal: Service Editor -->
   <div id="serviceEditorModal" class="modal" aria-hidden="true">
     <div class="modal-content modal-content-wide">
@@ -488,12 +565,45 @@
     </div>
   </div>
 
+  <!-- Modal: Выдать аванс -->
+  <div id="advanceModal" class="modal" aria-hidden="true">
+    <div class="modal-content modal-content-narrow">
+      <button class="close" onclick="closeAdvanceModal()" aria-label="Close">&times;</button>
+      <h2 data-i18n="dir.adv.title">Выдать аванс</h2>
+      <p class="muted" id="advanceEmpName">—</p>
+
+      <div class="create-user-info">
+        <i class="fa-solid fa-circle-info"></i>
+        <span data-i18n="dir.adv.note">Аванс — это долг. Сотрудник отрабатывает его сменами по дневной ставке. Засчитываются только смены после выдачи аванса.</span>
+      </div>
+
+      <label class="label" data-i18n="dir.adv.amount">Сумма аванса (Сум)</label>
+      <input type="number" id="advanceAmount" min="0" step="50000" placeholder="1000000" oninput="advancePreviewDays()"/>
+
+      <div class="adv-preview" id="advancePreview"></div>
+
+      <label class="label" data-i18n="dir.adv.date">Дата выдачи</label>
+      <input type="date" id="advanceDate"/>
+
+      <label class="label" data-i18n="dir.adv.noteField">Примечание (необязательно)</label>
+      <input type="text" id="advanceNote" data-i18n-ph="dir.adv.notePh" placeholder="Например: на лечение"/>
+
+      <div id="advanceError" class="login-error"></div>
+
+      <button class="primary" onclick="dirSubmitAdvance()">
+        <i class="fa-solid fa-hand-holding-dollar"></i> <span data-i18n="dir.adv.give">Выдать аванс</span>
+      </button>
+    </div>
+  </div>
+
   <div id="toastRoot" class="toast-root" aria-live="polite"></div>
 
   <script src="i18n.js"></script>
-  <script src="firebase-sync.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-client.js"></script>
   <script src="qrcode.js"></script>
   <script src="auth.js"></script>
+  <script src="supabase-data.js"></script>
   <script src="director.js"></script>
   <script src="pwa.js"></script>
   <script>
