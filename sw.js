@@ -4,7 +4,7 @@
    ВАЖНО: Supabase / Nominatim всегда идут в сеть, шрифты — из кэша.
 ========================================================= */
 
-const CACHE_VERSION = "komfort-v17";  // ← БУМПАЙ при выпуске новой версии
+const CACHE_VERSION = "komfort-v18";  // ← БУМПАЙ при выпуске новой версии
 const CACHE_NAME = `komfort-shell-${CACHE_VERSION}`;
 
 // Файлы оболочки — без них приложение не работает
@@ -18,6 +18,7 @@ const SHELL_FILES = [
   "./archive.html",
   "./profile.html",
   "./account.html",
+  "./operator.html",
   "./style.css",
   "./theme.css",
   "./responsive.css",
@@ -36,6 +37,7 @@ const SHELL_FILES = [
   "./archive.js",
   "./profile.js",
   "./account.js",
+  "./operator.js",
   "./pwa.js",
   "./manifest.json",
   "./icon-96.png",

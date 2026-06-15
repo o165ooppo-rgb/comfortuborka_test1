@@ -473,7 +473,7 @@ async function updateUserPassword(login, newPassword, byLogin) {
 }
 
 function roleLabel(role) {
-  const map = { director: "Директор", accountant: "Бухгалтер", worker: "Сотрудник", supervisor: "Супервайзер" };
+  const map = { director: "Директор", accountant: "Бухгалтер", worker: "Сотрудник", supervisor: "Супервайзер", operator: "Оператор" };
   return map[role] || role;
 }
 
@@ -558,6 +558,7 @@ function homePageForRole(role) {
   if (role === "director") return "director.html";
   if (role === "worker") return "worker.html";
   if (role === "accountant") return "accountant.html";
+  if (role === "operator") return "operator.html";
   if (role === "supervisor") return "index.html";
   return "index.html";
 }
@@ -711,26 +712,36 @@ function chatKey(loginA, loginB) {
   return [loginA, loginB].sort().join("__");
 }
 
-function sendMessage(fromLogin, toLogin, text) {
-  if (!text || !text.trim()) return;
+function sendMessage(fromLogin, toLogin, text, imagePath) {
+  const hasText = text && text.trim();
+  if (!hasText && !imagePath) return;
   const chats = getChats();
   const k = chatKey(fromLogin, toLogin);
   if (!chats[k]) chats[k] = [];
-  chats[k].push({
-    id: "msg_" + Date.now(),
+  const msg = {
+    id: "msg_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
     from: fromLogin,
     to: toLogin,
-    text: text.trim(),
+    text: hasText ? text.trim() : "",
     timestamp: new Date().toISOString(),
     read: false,
-  });
+  };
+  if (imagePath) msg.image = imagePath;   // путь к фото в Storage (бакет chat)
+  chats[k].push(msg);
   localStorage.setItem(AUTH_KEYS.CHATS, JSON.stringify(chats));
-  addLog(fromLogin, `Отправил(а) сообщение → ${toLogin}: "${text.trim().slice(0, 60)}${text.length>60?'...':''}"`);
+  const logText = imagePath ? "📷 фото" : `"${text.trim().slice(0, 60)}${text.length > 60 ? '...' : ''}"`;
+  addLog(fromLogin, `Отправил(а) сообщение → ${toLogin}: ${logText}`);
+  return msg;
 }
 
 function getMessagesBetween(loginA, loginB) {
   const chats = getChats();
   return chats[chatKey(loginA, loginB)] || [];
+}
+
+/* Список операторов (для выбора сотрудником, кому писать) */
+function getOperators() {
+  return getUsers().filter(u => u.role === "operator");
 }
 
 function markMessagesRead(myLogin, fromLogin) {

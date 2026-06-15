@@ -152,18 +152,29 @@
 
   <div id="staffChatPanel" class="staff-chat-panel" style="display:none">
     <div class="staff-chat-head">
+      <button class="staff-chat-back" id="staffChatBack" onclick="staffChatBackToList()" aria-label="Back" style="display:none">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
       <div class="staff-chat-head-info">
-        <div class="staff-chat-avatar"><i class="fa-solid fa-user-tie"></i></div>
+        <div class="staff-chat-avatar"><i class="fa-solid fa-headset"></i></div>
         <div>
-          <div class="staff-chat-title" data-i18n="role.director">Директор</div>
-          <div class="staff-chat-sub" id="staffChatSub" data-i18n="common.online">в сети</div>
+          <div class="staff-chat-title" id="staffChatTitle" data-i18n="staff.chat.chooseOp">Выберите оператора</div>
+          <div class="staff-chat-sub" id="staffChatSub"></div>
         </div>
       </div>
       <button class="staff-chat-close" onclick="toggleStaffChat()" aria-label="Close">&times;</button>
     </div>
     <div id="staffChatMessages" class="staff-chat-messages"></div>
-    <div class="staff-chat-input-row">
-      <input type="text" id="staffChatInput" data-i18n-ph="staff.chat.placeholder" placeholder="Сообщение директору..." onkeypress="if(event.key==='Enter')staffSendMessage()"/>
+    <div class="staff-chat-input-row" id="staffChatInputRow" style="display:none">
+      <input type="file" id="staffPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="staffSendPhoto(event)"/>
+      <input type="file" id="staffPhotoGallery" accept="image/*" style="display:none" onchange="staffSendPhoto(event)"/>
+      <button class="staff-chat-attach" onclick="document.getElementById('staffPhotoCamera').click()" aria-label="Camera" title="Камера">
+        <i class="fa-solid fa-camera"></i>
+      </button>
+      <button class="staff-chat-attach" onclick="document.getElementById('staffPhotoGallery').click()" aria-label="Gallery" title="Галерея">
+        <i class="fa-solid fa-image"></i>
+      </button>
+      <input type="text" id="staffChatInput" data-i18n-ph="staff.chat.placeholder" placeholder="Сообщение оператору..." onkeypress="if(event.key==='Enter')staffSendMessage()"/>
       <button class="staff-chat-send" onclick="staffSendMessage()" aria-label="Send">
         <i class="fa-solid fa-paper-plane"></i>
       </button>

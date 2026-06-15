@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Komfort Uborka — Оператор</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#1e40ff"/>
+  <link rel="icon" type="image/png" href="favicon-32.png"/>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="Komfort"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="theme.css"/>
+  <link rel="stylesheet" href="responsive.css"/>
+</head>
+<body class="op-body">
+
+  <div class="bg-mesh" aria-hidden="true">
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+  </div>
+
+  <header class="navbar">
+    <div class="nav-left">
+      <div class="op-head-ico"><i class="fa-solid fa-headset"></i></div>
+      <h1 class="call-center" id="opTitle" data-i18n="op.title">Поддержка сотрудников</h1>
+    </div>
+    <div class="nav-center">
+      <a href="operator.html" class="brand-text" id="brandText">
+        <i class="fa-solid fa-broom" data-brand-icon></i>
+        <span>KOMFORT</span>
+      </a>
+    </div>
+    <div class="nav-right">
+      <span class="user-chip" id="opUserChip">—</span>
+      <button onclick="opLogout()" class="nav-button nav-button-danger">
+        <i class="fa-solid fa-right-from-bracket"></i><span class="btn-text" data-i18n="nav.logout">Выйти</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="op-layout">
+    <!-- Список сотрудников -->
+    <aside class="op-list-pane" id="opListPane">
+      <div class="op-list-head">
+        <h2 data-i18n="op.employees">Сотрудники</h2>
+        <div class="op-search-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="opSearch" data-i18n-ph="op.search" placeholder="Поиск сотрудника..." oninput="opRenderList()"/>
+        </div>
+      </div>
+      <div id="opList" class="op-list"></div>
+    </aside>
+
+    <!-- Диалог -->
+    <section class="op-thread-pane" id="opThreadPane">
+      <div class="op-thread-empty" id="opThreadEmpty">
+        <i class="fa-regular fa-comments"></i>
+        <p data-i18n="op.pick">Выберите сотрудника, чтобы открыть переписку</p>
+      </div>
+
+      <div class="op-thread" id="opThread" style="display:none">
+        <div class="op-thread-head">
+          <button class="op-thread-back" onclick="opCloseThread()" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="op-thread-av" id="opThreadAv"></div>
+          <div class="op-thread-id">
+            <div class="op-thread-name" id="opThreadName">—</div>
+            <div class="op-thread-sub muted" id="opThreadSub">—</div>
+          </div>
+        </div>
+
+        <div id="opMessages" class="staff-chat-messages op-messages"></div>
+
+        <div class="staff-chat-input-row op-input-row">
+          <input type="file" id="opPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="opSendPhoto(event)"/>
+          <input type="file" id="opPhotoGallery" accept="image/*" style="display:none" onchange="opSendPhoto(event)"/>
+          <button class="staff-chat-attach" onclick="document.getElementById('opPhotoCamera').click()" title="Камера"><i class="fa-solid fa-camera"></i></button>
+          <button class="staff-chat-attach" onclick="document.getElementById('opPhotoGallery').click()" title="Галерея"><i class="fa-solid fa-image"></i></button>
+          <input type="text" id="opInput" data-i18n-ph="op.reply" placeholder="Ответ сотруднику..." onkeypress="if(event.key==='Enter')opSend()"/>
+          <button class="staff-chat-send" onclick="opSend()" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="auth.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="operator.js"></script>
+  <script src="pwa.js"></script>
+</body>
+</html>

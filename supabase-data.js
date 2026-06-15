@@ -612,6 +612,65 @@ window.FB = window.FB || {
 };
 
 /* =========================================================
+   ФОТО В ЧАТЕ — загрузка в приватный Storage (бакет "chat")
+   ---------------------------------------------------------
+   Сами сообщения остаются в app_state (лёгкие), а фото лежат
+   в Storage. В сообщении хранится только путь к файлу.
+========================================================= */
+
+/* Сжатие изображения через canvas (до maxSize по длинной стороне) */
+function _compressChatImage(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (Math.max(w, h) > maxSize) {
+          const k = maxSize / Math.max(w, h);
+          w = Math.round(w * k); h = Math.round(h * k);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error("compress failed")), "image/jpeg", 0.78);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Загружает фото в бакет chat. Возвращает путь (chatKey/msgId.jpg) или null. */
+async function uploadChatImage(file, chatKeyStr) {
+  if (!window.sb || !file) return null;
+  try {
+    const blob = await _compressChatImage(file, 1280);
+    const name = `${chatKeyStr}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error } = await window.sb.storage.from("chat").upload(name, blob, {
+      contentType: "image/jpeg", upsert: false,
+    });
+    if (error) { console.warn("[chat] upload:", error.message); return null; }
+    return name;
+  } catch (e) { console.warn("[chat] upload:", e.message || e); return null; }
+}
+
+/* Кэш подписанных ссылок на фото (чтобы не дёргать Storage на каждый рендер) */
+const _chatUrlCache = {};
+async function getChatImageUrl(path) {
+  if (!path || !window.sb) return null;
+  if (_chatUrlCache[path] && _chatUrlCache[path].exp > Date.now()) return _chatUrlCache[path].url;
+  try {
+    const { data, error } = await window.sb.storage.from("chat").createSignedUrl(path, 3600);
+    if (error || !data) return null;
+    _chatUrlCache[path] = { url: data.signedUrl, exp: Date.now() + 50 * 60 * 1000 };
+    return data.signedUrl;
+  } catch (e) { return null; }
+}
+
+/* =========================================================
    УСТРОЙСТВА (активные сеансы) + контроль завершения
    ---------------------------------------------------------
    • Каждое устройство имеет свой id (kus_device_id в localStorage).

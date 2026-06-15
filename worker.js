@@ -173,16 +173,12 @@ function renderStats() {
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 
 /* =========================================================
-   ЧАТ С ДИРЕКТОРОМ
+   ЧАТ С ОПЕРАТОРОМ
 ========================================================= */
-function getDirectorLogin() {
-  const users = getUsers();
-  const dir = users.find(u => u.role === "director");
-  return dir ? dir.login : null;
-}
+// текущий выбранный оператор (логин), с кем сотрудник переписывается
+let _opLogin = null;
 
 function initStaffChat() {
-  _staffChatDirectorLogin = getDirectorLogin();
   const bubble = document.getElementById("chatBubble");
   if (bubble) bubble.style.display = "flex";
   refreshStaffChat();
@@ -192,33 +188,101 @@ function initStaffChat() {
 function toggleStaffChat() {
   const panel = document.getElementById("staffChatPanel");
   if (!panel) return;
-  if (!_staffChatDirectorLogin) _staffChatDirectorLogin = getDirectorLogin();
   _staffChatOpen = !_staffChatOpen;
   if (_staffChatOpen) {
     panel.style.display = "flex";
-    if (_staffChatDirectorLogin) {
-      markMessagesRead(session.login, _staffChatDirectorLogin);
-      renderStaffChatMessages();
-      setTimeout(() => {
-        const m = document.getElementById("staffChatMessages");
-        if (m) m.scrollTop = m.scrollHeight;
-      }, 50);
-    }
+    renderStaffChatView();
     refreshStaffChatBadge();
   } else {
     panel.style.display = "none";
   }
 }
 
+/* Решает что показать: список операторов или диалог с выбранным */
+function renderStaffChatView() {
+  const operators = (typeof getOperators === "function") ? getOperators() : [];
+  // если оператор только один — сразу открываем диалог с ним
+  if (!_opLogin && operators.length === 1) _opLogin = operators[0].login;
+
+  if (!_opLogin) {
+    renderOperatorPicker(operators);
+  } else {
+    markMessagesRead(session.login, _opLogin);
+    renderStaffChatMessages();
+    setTimeout(() => {
+      const m = document.getElementById("staffChatMessages");
+      if (m) m.scrollTop = m.scrollHeight;
+    }, 50);
+  }
+  updateStaffChatHeader();
+}
+
+/* Шапка панели: имя оператора + кнопка «назад к списку» */
+function updateStaffChatHeader() {
+  const titleEl = document.getElementById("staffChatTitle");
+  const subEl = document.getElementById("staffChatSub");
+  const backBtn = document.getElementById("staffChatBack");
+  const inputRow = document.getElementById("staffChatInputRow");
+  if (_opLogin) {
+    const op = getUsers().find(u => u.login === _opLogin);
+    if (titleEl) titleEl.textContent = op ? (op.fullName || op.login) : _opLogin;
+    if (subEl) subEl.textContent = t("role.operator") || "Оператор";
+    if (backBtn) backBtn.style.display = (getOperators().length > 1) ? "flex" : "none";
+    if (inputRow) inputRow.style.display = "flex";
+  } else {
+    if (titleEl) titleEl.textContent = t("staff.chat.chooseOp") || "Выберите оператора";
+    if (subEl) subEl.textContent = "";
+    if (backBtn) backBtn.style.display = "none";
+    if (inputRow) inputRow.style.display = "none";
+  }
+}
+
+function staffChatBackToList() {
+  _opLogin = null;
+  renderStaffChatView();
+}
+
+/* Список операторов */
+function renderOperatorPicker(operators) {
+  const wrap = document.getElementById("staffChatMessages");
+  if (!wrap) return;
+  if (!operators || operators.length === 0) {
+    wrap.innerHTML = `<div class="staff-chat-empty"><i class="fa-regular fa-comments"></i><p>${escapeHtml(t("staff.chat.noOp") || "Операторы пока не добавлены. Обратитесь к директору.")}</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="op-picker">` + operators.map(op => {
+    const unread = getUnreadCount(session.login, op.login);
+    const initials = (op.fullName || op.login).slice(0, 2).toUpperCase();
+    const av = op.avatar
+      ? `<img src="${escapeHtml(op.avatar)}" class="op-pick-av" alt=""/>`
+      : `<div class="op-pick-av op-pick-av-empty">${escapeHtml(initials)}</div>`;
+    return `
+      <button class="op-pick" onclick="staffPickOperator('${escapeHtml(op.login)}')">
+        ${av}
+        <div class="op-pick-info">
+          <div class="op-pick-name">${escapeHtml(op.fullName || op.login)}</div>
+          <div class="op-pick-role muted">${escapeHtml(t("role.operator") || "Оператор")}</div>
+        </div>
+        ${unread > 0 ? `<span class="op-pick-badge">${unread}</span>` : ''}
+      </button>`;
+  }).join("") + `</div>`;
+}
+
+function staffPickOperator(login) {
+  _opLogin = login;
+  renderStaffChatView();
+}
+
 function refreshStaffChat() {
-  if (!_staffChatDirectorLogin) _staffChatDirectorLogin = getDirectorLogin();
-  if (_staffChatOpen) renderStaffChatMessages();
+  if (_staffChatOpen) renderStaffChatView();
   refreshStaffChatBadge();
 }
 
 function refreshStaffChatBadge() {
-  if (!_staffChatDirectorLogin) return;
-  const unread = getUnreadCount(session.login, _staffChatDirectorLogin);
+  // суммарные непрочитанные по всем операторам
+  let unread = 0;
+  const operators = (typeof getOperators === "function") ? getOperators() : [];
+  operators.forEach(op => { unread += getUnreadCount(session.login, op.login); });
   const bub = document.getElementById("chatBubbleBadge");
   const card = document.getElementById("workerChatBadge");
   if (unread > 0) {
@@ -232,24 +296,55 @@ function refreshStaffChatBadge() {
 
 function renderStaffChatMessages() {
   const wrap = document.getElementById("staffChatMessages");
-  if (!wrap || !_staffChatDirectorLogin) return;
-  const messages = getMessagesBetween(session.login, _staffChatDirectorLogin);
+  if (!wrap || !_opLogin) return;
+  const messages = getMessagesBetween(session.login, _opLogin);
   if (messages.length === 0) {
-    wrap.innerHTML = `<div class="staff-chat-empty"><i class="fa-regular fa-comments"></i><p>${escapeHtml(t("staff.chat.dirInfo")).replace(/\n/g, "<br>")}</p></div>`;
+    wrap.innerHTML = `<div class="staff-chat-empty"><i class="fa-regular fa-comments"></i><p>${escapeHtml(t("staff.chat.opInfo") || "Напишите оператору, если на работе чего-то не хватает — приборов, средств. Можно отправить фото.").replace(/\n/g, "<br>")}</p></div>`;
     return;
   }
+  const lang = getCurrentLang();
   wrap.innerHTML = messages.map(m => {
     const mine = m.from === session.login;
     const ts = m.timestamp || m.createdAt;
-    const time = new Date(ts).toLocaleTimeString(getCurrentLang() === "uz" ? "uz-UZ" : (getCurrentLang() === "en" ? "en-US" : "ru-RU"), { hour: "2-digit", minute: "2-digit" });
+    const time = new Date(ts).toLocaleTimeString(lang === "uz" ? "uz-UZ" : (lang === "en" ? "en-US" : "ru-RU"), { hour: "2-digit", minute: "2-digit" });
+    const body = renderMsgBody(m);
     return `
       <div class="msg ${mine ? "msg-mine" : "msg-theirs"}">
-        <div class="msg-bubble">${escapeHtml(m.text).replace(/\n/g, "<br>")}</div>
+        <div class="msg-bubble">${body}</div>
         <div class="msg-time muted">${escapeHtml(time)}</div>
-      </div>
-    `;
+      </div>`;
   }).join("");
+  // подгружаем фото асинхронно
+  hydrateChatImages(wrap);
   setTimeout(() => { wrap.scrollTop = wrap.scrollHeight; }, 10);
+}
+
+/* Тело сообщения: текст и/или фото-плейсхолдер */
+function renderMsgBody(m) {
+  let html = "";
+  if (m.image) {
+    html += `<img class="msg-photo" data-imgpath="${escapeHtml(m.image)}" alt="фото" style="display:none"/>
+             <div class="msg-photo-loading" data-imgloading="${escapeHtml(m.image)}"><i class="fa-solid fa-image"></i></div>`;
+  }
+  if (m.text) html += `<div class="msg-text">${escapeHtml(m.text).replace(/\n/g, "<br>")}</div>`;
+  return html;
+}
+
+/* Достаёт подписанные ссылки на фото и подставляет в <img> */
+async function hydrateChatImages(root) {
+  const imgs = root.querySelectorAll("img[data-imgpath]");
+  for (const img of imgs) {
+    const path = img.getAttribute("data-imgpath");
+    if (!path || img.src) continue;
+    const url = (typeof getChatImageUrl === "function") ? await getChatImageUrl(path) : null;
+    if (url) {
+      img.src = url;
+      img.style.display = "block";
+      img.onclick = () => window.open(url, "_blank");
+      const loader = root.querySelector(`[data-imgloading="${CSS.escape(path)}"]`);
+      if (loader) loader.style.display = "none";
+    }
+  }
 }
 
 function staffSendMessage() {
@@ -257,13 +352,29 @@ function staffSendMessage() {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
-  if (!_staffChatDirectorLogin) {
-    showToast("error", t("common.error"), t("staff.chat.noDir"));
-    return;
-  }
-  sendMessage(session.login, _staffChatDirectorLogin, text);
+  if (!_opLogin) { showToast("error", t("common.error"), t("staff.chat.chooseOp") || "Выберите оператора"); return; }
+  sendMessage(session.login, _opLogin, text);
   input.value = "";
   renderStaffChatMessages();
+  refreshStaffChatBadge();
+}
+
+/* Отправка фото из чата (камера или галерея) */
+async function staffSendPhoto(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  if (!_opLogin) { showToast("error", t("common.error"), t("staff.chat.chooseOp") || "Выберите оператора"); return; }
+  if (!file.type.startsWith("image/")) { showToast("error", t("common.error"), "Только изображения"); return; }
+  if (file.size > 12 * 1024 * 1024) { showToast("error", t("common.error"), "Фото слишком большое"); return; }
+
+  showToast("info", t("staff.chat.sending") || "Отправка...", t("staff.chat.photoUploading") || "Загружаю фото…");
+  const key = chatKey(session.login, _opLogin);
+  const path = (typeof uploadChatImage === "function") ? await uploadChatImage(file, key) : null;
+  if (!path) { showToast("error", t("common.error"), t("staff.chat.photoFail") || "Не удалось отправить фото"); return; }
+  sendMessage(session.login, _opLogin, "", path);
+  renderStaffChatMessages();
+  refreshStaffChatBadge();
 }
 
 /* =========================================================

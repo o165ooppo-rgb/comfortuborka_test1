@@ -516,25 +516,65 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* =========================================================
-   20. САЙДБАР БУХГАЛТЕРИИ — согласование с новой палитрой
+   20. САЙДБАР БУХГАЛТЕРИИ — чистый, ровный, ничего не режется
 ========================================================= */
 .acc-sidebar {
-  background: linear-gradient(180deg, #0b1020 0%, #142a9c 58%, #1430d8 100%);
-  /* запас снизу, чтобы «Выйти» не прилипал к краю и не перекрывался */
-  padding-bottom: max(26px, env(safe-area-inset-bottom)) !important;
+  background: linear-gradient(180deg, #0b1020 0%, #142a9c 58%, #1430d8 100%) !important;
+  box-sizing: border-box;
+  /* гарантированный вертикальный скролл, чтобы низ не обрезался */
+  height: 100vh !important;
+  height: 100dvh !important;          /* учёт панелей браузера на телефоне */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  gap: 15px !important;               /* плотнее — больше влезает без скролла */
+  padding: 20px 16px max(28px, env(safe-area-inset-bottom)) !important;
+  scrollbar-width: thin;
 }
+/* всё внутри не вылезает за ширину сайдбара (фикс «отрезанных» кнопок) */
+.acc-sidebar * { max-width: 100%; box-sizing: border-box; }
+.acc-sidebar input,
+.acc-sidebar select,
+.acc-sidebar button { width: 100%; }
+.acc-side-row, .acc-side-dates { min-width: 0; }
+.acc-sidebar .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+.acc-sidebar .grid-2 > div { min-width: 0; }
+.acc-sidebar .grid-2 input { width: 100% !important; }
+/* кнопки выбора периода — ровные, на всю ширину */
+.acc-sidebar .segmented { display: flex; flex-direction: column; gap: 6px; }
+.acc-sidebar .seg-btn { width: 100%; border-radius: 11px; }
+.acc-sidebar .seg-btn.active { box-shadow: 0 6px 16px rgba(255,214,10,.28); }
+
+/* карточка пользователя */
 .acc-side-user {
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.10);
   border-radius: 16px;
 }
+.acc-side-user-name, .acc-side-user-role { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* секции-заголовки */
+.acc-side-title { letter-spacing: .04em; opacity: .85; }
+
+/* кнопки действий — ровные, читаемые */
+.side-actions button { border-radius: 12px; }
+.side-bottom { margin-top: auto; }     /* «Панель директора»/«Выйти» — внизу, но в потоке скролла */
 .side-bottom a, .side-bottom button {
   border-radius: 12px;
   transition: background .18s, transform .15s var(--ease);
 }
 .side-bottom a:hover, .side-bottom button:hover { transform: translateY(-1px); }
-/* активный период/язык — мягче и в тон бренду */
+
+/* язык/период — мягкий бренд-акцент на активном */
 .acc-side-lang button.active { box-shadow: 0 4px 14px rgba(36,64,240,.35); }
+
+/* инсайт-боксы (ИИ/прогноз) не должны распирать сайдбар */
+.insight-box { word-break: break-word; }
+
+/* бургер-кнопка (моб.) — в тон теме */
+.acc-burger {
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
 
 /* =========================================================
    21. ВЕЖЛИВОЕ ОКНО «НЕ ДОПУЩЕН К СМЕНЕ» (сотрудник)
@@ -551,3 +591,126 @@ input:focus, select:focus, textarea:focus {
 }
 .ts-blocked-card h2 { font-family: var(--font-display); margin-bottom: 8px; }
 .ts-blocked-card .muted { line-height: 1.6; margin-bottom: 18px; }
+
+/* =========================================================
+   22. ЧАТ С ФОТО + ВЫБОР ОПЕРАТОРА + СТРАНИЦА ОПЕРАТОРА
+========================================================= */
+
+/* --- кнопки вложений и «назад» в чате --- */
+.staff-chat-attach {
+  width: 38px; height: 38px; flex-shrink: 0;
+  border: none; border-radius: 50%;
+  background: var(--bg-3); color: var(--blue);
+  font-size: 15px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .18s, transform .15s var(--ease-snap);
+}
+.staff-chat-attach:hover { background: var(--blue-soft); transform: scale(1.06); }
+.staff-chat-back {
+  width: 34px; height: 34px; border: none; border-radius: 50%;
+  background: rgba(255,255,255,.18); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; margin-right: 4px;
+}
+
+/* --- фото в сообщении --- */
+.msg-photo {
+  max-width: 220px; max-height: 260px;
+  border-radius: 14px; cursor: pointer; display: block;
+  margin-bottom: 4px; object-fit: cover;
+}
+.msg-photo-loading {
+  width: 180px; height: 130px; border-radius: 14px;
+  background: var(--bg-3); display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 26px;
+}
+.msg-text { white-space: normal; }
+
+/* --- выбор оператора (у сотрудника) --- */
+.op-picker { display: flex; flex-direction: column; gap: 8px; padding: 6px; }
+.op-pick {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 14px; padding: 12px 14px; cursor: pointer; text-align: left;
+  transition: border-color .2s, transform .15s var(--ease);
+}
+.op-pick:hover { border-color: rgba(36,64,240,.4); transform: translateY(-1px); }
+.op-pick-av, .op-li-av {
+  width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+}
+.op-pick-av-empty, .op-li-av-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--blue), #4c6bff);
+  color: #fff; font-weight: 800; font-size: 15px;
+}
+.op-pick-info { flex: 1; min-width: 0; }
+.op-pick-name { font-weight: 800; color: var(--ink); }
+.op-pick-badge, .op-li-badge {
+  background: #ff3b30; color: #fff; font-size: 12px; font-weight: 800;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* --- страница оператора --- */
+.op-head-ico {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--blue), #4c6bff); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
+}
+.op-layout {
+  max-width: 1200px; margin: 18px auto; padding: 0 18px;
+  display: grid; grid-template-columns: 340px 1fr; gap: 16px;
+  height: calc(100vh - 130px);
+}
+.op-list-pane, .op-thread-pane {
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
+}
+.op-list-head { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+.op-list-head h2 { font-family: var(--font-display); font-size: 18px; margin: 0 0 10px; }
+.op-search-wrap { position: relative; }
+.op-search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
+.op-search-wrap input { width: 100%; padding-left: 34px !important; }
+.op-list { overflow-y: auto; flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.op-li {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: transparent; border: none; border-radius: 12px;
+  padding: 10px 12px; cursor: pointer; text-align: left;
+  transition: background .15s;
+}
+.op-li:hover { background: var(--bg-3); }
+.op-li-active { background: var(--blue-soft) !important; }
+.op-li-av-wrap { position: relative; flex-shrink: 0; }
+.op-li-av-wrap .online-dot { position: absolute; right: 0; bottom: 0; width: 11px; height: 11px; border-radius: 50%; background: #18b368; border: 2px solid var(--bg-2); }
+.op-li-main { flex: 1; min-width: 0; }
+.op-li-name { font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-li-preview { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-empty { padding: 30px 16px; text-align: center; }
+
+.op-thread-pane { position: relative; }
+.op-thread-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--muted); gap: 12px; padding: 30px;
+}
+.op-thread-empty i { font-size: 50px; opacity: .4; }
+.op-thread { flex: 1; display: flex; flex-direction: column; height: 100%; }
+.op-thread-head {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg, var(--blue), var(--blue-2)); color: #fff;
+}
+.op-thread-back { display: none; width: 34px; height: 34px; border: none; border-radius: 50%; background: rgba(255,255,255,.2); color: #fff; cursor: pointer; align-items: center; justify-content: center; }
+.op-thread-av { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; font-weight: 800; overflow: hidden; }
+.op-thread-av img { width: 100%; height: 100%; object-fit: cover; }
+.op-thread-name { font-weight: 800; }
+.op-thread-sub { font-size: 12px; opacity: .85; color: rgba(255,255,255,.9) !important; }
+.op-messages { flex: 1; }
+.op-input-row { border-top: 1px solid var(--line); }
+
+/* мобильный режим страницы оператора */
+@media (max-width: 760px) {
+  .op-layout { grid-template-columns: 1fr; height: calc(100vh - 120px); }
+  .op-thread-pane { display: none; }
+  body.op-thread-open .op-list-pane { display: none; }
+  body.op-thread-open .op-thread-pane { display: flex; }
+  .op-thread-back { display: flex !important; }
+}
