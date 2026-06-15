@@ -7,6 +7,17 @@ let opSession = null;
 let _opActiveLogin = null;       // с кем сейчас открыт диалог
 let _opPollTimer = null;
 
+/* Экранирование HTML (на этой странице app.js не подключён) */
+function escapeHtml(str) {
+  if (str == null) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 bootstrapApp({ allowedRoles: ["operator"] }, function (s) {
   opSession = s;
   applyI18n();
