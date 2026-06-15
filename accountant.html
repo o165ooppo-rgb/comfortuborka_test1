@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="style.css"/>
   <link rel="stylesheet" href="accountant.css"/>
   <link rel="stylesheet" href="theme.css"/>
+  <link rel="stylesheet" href="responsive.css"/>
 
   <!-- Chart.js напрямую с CDN (блокирующе, до отрисовки). Запас — unpkg. -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -33,7 +34,12 @@
     }
   </script>
   <!-- Moment.js не критичен — есть нативный fallback в accountant.js, но попробуем загрузить -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js" onerror="console.warn('moment.js blocked, using native fallback');"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+  <script>
+    if (typeof moment === 'undefined') {
+      document.write('<scr' + 'ipt src="https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment.min.js"><\/scr' + 'ipt>');
+    }
+  </script>
 </head>
 <body class="accountant-body">
 
